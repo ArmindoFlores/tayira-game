@@ -1,19 +1,33 @@
+#include "game/game.h"
 #include "renderer/renderer.h"
 #include <stdlib.h>
 
-int update(renderer_ctx ctx, double dt) {
-    renderer_fill(ctx, 1, 1, 1);
-    log_info("Took %lfms", dt * 1000);
-    return 0;
-}
-
 int main() {
-    renderer_ctx ctx = renderer_init(720, 480, "Tayira - Echoes of the Crimson Sea");
-    if (ctx == NULL) {
-        return 1;
-    }
-    
-    renderer_run(ctx, update, NULL, NULL, NULL, NULL);
+    game_ctx game = NULL;
+    renderer_ctx ctx = NULL;
 
+    game = game_context_init();
+    if (game == NULL) {
+        goto cleanup;
+    }
+
+    ctx = renderer_init(720, 480, "Tayira - Echoes of the Crimson Sea");
+    if (ctx == NULL) {
+        goto cleanup;
+    }
+
+    renderer_register_user_context(ctx, game);
+    
+    renderer_run(
+        ctx,
+        game_update_handler,
+        game_key_handler,
+        game_mouse_button_handler,
+        game_mouse_move_handler,
+        game_scroll_handler
+    );
+    
+cleanup:
     renderer_cleanup(ctx);
+    game_context_cleanup(game);
 }

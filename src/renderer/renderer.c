@@ -12,6 +12,7 @@ static const char BASE_SHADER_PATH[] = "src/shaders/";
 struct renderer_ctx_s {
     GLFWwindow *window;
     GLuint shader_program;
+    void *user_context;
     int should_close;
 };
 
@@ -135,16 +136,17 @@ renderer_ctx renderer_init(int width, int height, const char *title) {
         log_error("Failed to allocate memory for renderer context");
         return NULL;
     }
-
+    
     if (!glfwInit()) {
         log_error("Failed to init GLFW");
         return NULL;
     }
-
+    
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-
+    
+    ctx->user_context = NULL;
     ctx->should_close = 0;
     ctx->window = glfwCreateWindow(width, height, title, NULL, NULL);
     if (ctx->window == NULL) {
@@ -186,7 +188,15 @@ renderer_ctx renderer_init(int width, int height, const char *title) {
     return ctx;
 }
 
-void renderer_fill(renderer_ctx ctx, float r, float g, float b) {
+void renderer_register_user_context(renderer_ctx ctx, void *user_context) {
+    ctx->user_context = user_context;
+}
+
+void *renderer_get_user_context(renderer_ctx ctx) {
+    return ctx->user_context;
+}
+
+void renderer_fill(renderer_ctx, float r, float g, float b) {
     glClearColor(r, g, b, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
 }
@@ -225,6 +235,7 @@ void renderer_run(
 }
 
 void renderer_cleanup(renderer_ctx ctx) {
+    if (ctx == NULL) return;
     window_adapter *wa = (window_adapter *)glfwGetWindowUserPointer(ctx->window);
     if (wa) free(wa);
     glfwSetWindowUserPointer(ctx->window, NULL);

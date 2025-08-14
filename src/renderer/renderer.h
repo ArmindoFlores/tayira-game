@@ -10,6 +10,8 @@ typedef int (*mouse_move_callback) (renderer_ctx, double x, double y);
 typedef int (*update_callback) (renderer_ctx, double dt);
 
 renderer_ctx renderer_init(int width, int height, const char *title);
+void renderer_register_user_context(renderer_ctx, void *user_context);
+void *renderer_get_user_context(renderer_ctx);
 void renderer_fill(renderer_ctx, float r, float g, float b);
 void renderer_run(
     renderer_ctx, 
