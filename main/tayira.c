@@ -1,8 +1,9 @@
 #include "renderer/renderer.h"
 #include <stdlib.h>
 
-int update(renderer_ctx ctx) {
+int update(renderer_ctx ctx, double dt) {
     renderer_fill(ctx, 1, 1, 1);
+    log_info("Took %lfms", dt * 1000);
     return 0;
 }
 
@@ -12,7 +13,7 @@ int main() {
         return 1;
     }
     
-    renderer_run(ctx, update);
+    renderer_run(ctx, update, NULL, NULL, NULL, NULL);
 
     renderer_cleanup(ctx);
 }

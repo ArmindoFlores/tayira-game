@@ -12,7 +12,20 @@ static const char BASE_SHADER_PATH[] = "src/shaders/";
 struct renderer_ctx_s {
     GLFWwindow *window;
     GLuint shader_program;
+    int should_close;
 };
+
+typedef struct input_callbacks {
+    key_callback on_key;
+    mouse_button_callback on_mouse_button;
+    mouse_move_callback on_mouse_move;
+    mouse_move_callback on_scroll;
+} input_callbacks;
+
+typedef struct window_adapter {
+    renderer_ctx ctx;
+    input_callbacks callbacks;
+} window_adapter;
 
 static char *get_full_shader_path(const char *filename) {
     size_t size = strlen(filename) + sizeof(BASE_SHADER_PATH);
@@ -65,6 +78,57 @@ static GLuint compile_shader(GLenum type, const char *filename) {
     return shader;
 }
 
+static void internal_key_cb(GLFWwindow *win, int key, int scancode, int action, int mods) {
+    window_adapter *wa = (window_adapter*) glfwGetWindowUserPointer(win);
+    if (!wa || !wa->callbacks.on_key) return;
+    if (wa->callbacks.on_key(wa->ctx, key, scancode, action, mods) != 0) {
+        wa->ctx->should_close = 1;
+    }
+}
+
+static void internal_mouse_button_cb(GLFWwindow *win, int button, int action, int mods) {
+    window_adapter *wa = (window_adapter*) glfwGetWindowUserPointer(win);
+    if (!wa || !wa->callbacks.on_mouse_button) return;
+    if (wa->callbacks.on_mouse_button(wa->ctx, button, action, mods) != 0) {
+        wa->ctx->should_close = 1;
+    }
+}
+
+static void internal_mouse_move_cb(GLFWwindow *win, double x, double y) {
+    window_adapter *wa = (window_adapter*) glfwGetWindowUserPointer(win);
+    if (!wa || !wa->callbacks.on_mouse_move) return;
+    if (wa->callbacks.on_mouse_move(wa->ctx, x, y) != 0) {
+        wa->ctx->should_close = 1;
+    }
+}
+
+static void internal_scroll_cb(GLFWwindow *win, double dx, double dy) {
+    window_adapter *wa = (window_adapter*) glfwGetWindowUserPointer(win);
+    if (!wa || !wa->callbacks.on_scroll) return;
+    if (wa->callbacks.on_scroll(wa->ctx, dx, dy) != 0) {
+        wa->ctx->should_close = 1;
+    }
+}
+
+static int init_user_window(GLFWwindow *win, renderer_ctx ctx) {
+    if (!win || !ctx) return 1;
+
+    window_adapter *wa = (window_adapter*) malloc(sizeof *wa);
+    if (!wa) return 1;
+
+    wa->ctx = ctx;
+    wa->callbacks = (input_callbacks) {0};
+
+    glfwSetWindowUserPointer(win, wa);
+
+    glfwSetKeyCallback(win, internal_key_cb);
+    glfwSetMouseButtonCallback(win, internal_mouse_button_cb);
+    glfwSetCursorPosCallback(win, internal_mouse_move_cb);
+    glfwSetScrollCallback(win, internal_scroll_cb);
+
+    return 0;
+}
+
 renderer_ctx renderer_init(int width, int height, const char *title) {
     renderer_ctx ctx = (renderer_ctx) malloc(sizeof(struct renderer_ctx_s));
     if (ctx == NULL) {
@@ -81,6 +145,7 @@ renderer_ctx renderer_init(int width, int height, const char *title) {
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
+    ctx->should_close = 0;
     ctx->window = glfwCreateWindow(width, height, title, NULL, NULL);
     if (ctx->window == NULL) {
         log_error("Failed to create window");
@@ -90,6 +155,8 @@ renderer_ctx renderer_init(int width, int height, const char *title) {
     }
 
     glfwMakeContextCurrent(ctx->window);
+
+    init_user_window(ctx->window, ctx);
 
     if (glewInit() != GLEW_OK) {
         log_error("Failed to init GLEW\n");
@@ -124,14 +191,33 @@ void renderer_fill(renderer_ctx ctx, float r, float g, float b) {
     glClear(GL_COLOR_BUFFER_BIT);
 }
 
-void renderer_run(renderer_ctx ctx, int (*update) (renderer_ctx)) {
-    while (!glfwWindowShouldClose(ctx->window)) {
+void renderer_run(
+    renderer_ctx ctx, 
+    update_callback update_cb, 
+    key_callback key_cb,
+    mouse_button_callback mouse_button_cb,
+    mouse_move_callback mouse_move_cb,
+    mouse_move_callback scroll_cb
+) {
+    window_adapter *wa = (window_adapter*) glfwGetWindowUserPointer(ctx->window);
+    if (wa) {
+        wa->callbacks.on_key = key_cb;
+        wa->callbacks.on_mouse_button = mouse_button_cb;
+        wa->callbacks.on_mouse_move = mouse_move_cb;
+        wa->callbacks.on_scroll = scroll_cb;
+    }
+    glfwSwapInterval(1);
+
+    double last_frame_time = glfwGetTime();
+    while (!glfwWindowShouldClose(ctx->window) && !ctx->should_close) {
         glClear(GL_COLOR_BUFFER_BIT);
 
-        if (update(ctx) != 0) {
+        double current_time = glfwGetTime();
+        if (update_cb(ctx, current_time - last_frame_time) != 0) {
             log_info("Exiting main loop");
             break;
         }
+        last_frame_time = current_time;
 
         glfwSwapBuffers(ctx->window);
         glfwPollEvents();
@@ -139,6 +225,9 @@ void renderer_run(renderer_ctx ctx, int (*update) (renderer_ctx)) {
 }
 
 void renderer_cleanup(renderer_ctx ctx) {
+    window_adapter *wa = (window_adapter *)glfwGetWindowUserPointer(ctx->window);
+    if (wa) free(wa);
+    glfwSetWindowUserPointer(ctx->window, NULL);
     glDeleteProgram(ctx->shader_program);
     glfwDestroyWindow(ctx->window);
     glfwTerminate();
