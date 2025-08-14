@@ -9,9 +9,15 @@
 
 static const char BASE_SHADER_PATH[] = "src/shaders/";
 
+struct texture_buffers_s {
+    GLuint vao, vbo, ebo;
+};
+
 struct renderer_ctx_s {
     GLFWwindow *window;
     GLuint shader_program;
+    struct texture_buffers_s t_buf; 
+
     void *user_context;
     int should_close;
 };
@@ -130,6 +136,36 @@ static int init_user_window(GLFWwindow *win, renderer_ctx ctx) {
     return 0;
 }
 
+static void init_texture_buffers(renderer_ctx ctx) {
+    float vertices[] = {
+        0.0f, 1.0f, 0.0f, 1.0f,
+        1.0f, 1.0f, 1.0f, 1.0f,
+        1.0f, 0.0f, 1.0f, 0.0f,
+        0.0f, 0.0f, 0.0f, 0.0f
+    };
+    unsigned int indices[] = { 0, 1, 2, 0, 2, 3 };
+
+    glGenVertexArrays(1, &ctx->t_buf.vao);
+    glGenBuffers(1, &ctx->t_buf.vbo);
+    glGenBuffers(1, &ctx->t_buf.ebo);
+
+    glBindVertexArray(ctx->t_buf.vao);
+
+    glBindBuffer(GL_ARRAY_BUFFER, ctx->t_buf.vbo);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ctx->t_buf.ebo);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
+
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
+    glEnableVertexAttribArray(1);
+
+    glBindVertexArray(0);
+}
+
 renderer_ctx renderer_init(int width, int height, const char *title) {
     renderer_ctx ctx = (renderer_ctx) malloc(sizeof(struct renderer_ctx_s));
     if (ctx == NULL) {
@@ -166,6 +202,8 @@ renderer_ctx renderer_init(int width, int height, const char *title) {
         return NULL;
     }
 
+    init_texture_buffers(ctx);
+
     GLuint vs = compile_shader(GL_VERTEX_SHADER, "texture/vertex.glsl");
     if (vs == 0) {
         free(ctx);
@@ -201,6 +239,31 @@ void renderer_fill(renderer_ctx, float r, float g, float b) {
     glClear(GL_COLOR_BUFFER_BIT);
 }
 
+void renderer_draw_texture(renderer_ctx ctx, texture t, float x, float y) {
+    glUseProgram(ctx->shader_program);
+
+    float tex_w = (float) texture_get_width(t);
+    float tex_h = (float) texture_get_height(t);
+
+    // Set draw position and size (subimage size in pixels)
+    glUniform2f(glGetUniformLocation(ctx->shader_program, "uPos"), x, y);
+    glUniform2f(glGetUniformLocation(ctx->shader_program, "uSize"), tex_w, tex_h);
+    glUniform2f(glGetUniformLocation(ctx->shader_program, "uScreen"), 720.0, 480.0);
+
+    float vertices[16];
+    texture_get_vertices(t, vertices);
+
+    glBindVertexArray(ctx->t_buf.vao);
+    glBindBuffer(GL_ARRAY_BUFFER, ctx->t_buf.vbo);
+    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, texture_get_id(t));
+    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+
+    glBindVertexArray(0);
+}
+
 void renderer_run(
     renderer_ctx ctx, 
     update_callback update_cb, 
@@ -216,7 +279,7 @@ void renderer_run(
         wa->callbacks.on_mouse_move = mouse_move_cb;
         wa->callbacks.on_scroll = scroll_cb;
     }
-    glfwSwapInterval(1);
+    // glfwSwapInterval(1);
 
     double last_frame_time = glfwGetTime();
     while (!glfwWindowShouldClose(ctx->window) && !ctx->should_close) {

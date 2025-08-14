@@ -2,6 +2,7 @@
 #define _H_RESOURCES_H_
 
 #include "logger/logger.h"
+#include "assets.h"
 
 typedef struct renderer_ctx_s *renderer_ctx;
 typedef int (*key_callback) (renderer_ctx, int key, int scancode, int action, int mods);
@@ -21,6 +22,7 @@ void renderer_run(
     mouse_move_callback mouse_move_cb,
     mouse_move_callback scroll_cb
 );
+void renderer_draw_texture(renderer_ctx, texture, float x, float y);
 void renderer_cleanup(renderer_ctx);
 
 #endif
