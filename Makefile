@@ -1,7 +1,7 @@
 # Compiler and flags
 LOG_LEVEL 	:= LOG_LEVEL_DEBUG  # Possible values: DEBUG, INFO, WARNING, ERROR
 CC      	:= gcc
-CFLAGS  	:= -Wall -Wextra -std=c11 -I src -I main -DLOG_LEVEL=$(LOG_LEVEL)
+CFLAGS  	:= -ggdb -Wall -Wextra -std=c99 -I src -I main -DLOG_LEVEL=$(LOG_LEVEL)
 AR      	:= ar rcs
 
 # Detect OS and set libraries
@@ -37,7 +37,7 @@ all: $(TARGET)
 
 # Link final executable
 $(TARGET): $(MAIN_OBJ) $(TOP_OBJ) $(LIB_FILES) | $(BUILD_DIR)
-	$(CC) $(CFLAGS) -o $@ $(MAIN_OBJ) $(TOP_OBJ) $(filter-out build/liblogger.a,$(LIB_FILES)) build/liblogger.a $(LIBS)
+	$(CC) $(CFLAGS) -o $@ $(MAIN_OBJ) $(TOP_OBJ) $(filter-out build/liblogger.a build/libdata_structures.a,$(LIB_FILES)) build/libdata_structures.a build/liblogger.a $(LIBS)
 
 # Compile main and top-level
 $(BUILD_DIR)/%.o: $(MAIN_DIR)/%.c | $(BUILD_DIR)

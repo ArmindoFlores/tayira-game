@@ -1,18 +1,21 @@
 #include "game/game.h"
 #include "renderer/renderer.h"
+#include "data_structures/hashtable.h"
+#include <stdio.h>
 #include <stdlib.h>
 
 int main() {
     game_ctx game = NULL;
     renderer_ctx ctx = NULL;
 
-    game = game_context_init();
-    if (game == NULL) {
+    
+    ctx = renderer_init(720, 480, "Tayira - Echoes of the Crimson Sea");
+    if (ctx == NULL) {
         goto cleanup;
     }
 
-    ctx = renderer_init(720, 480, "Tayira - Echoes of the Crimson Sea");
-    if (ctx == NULL) {
+    game = game_context_init();
+    if (game == NULL) {
         goto cleanup;
     }
 

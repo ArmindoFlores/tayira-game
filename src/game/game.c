@@ -1,25 +1,28 @@
 #include "game.h"
+#include "asset_manager.h"
 #include "logger/logger.h"
-#include "renderer/assets.h"
 #include <stdlib.h>
 
 struct game_ctx_s {
     int level;
-    asset a;
+    asset_manager_ctx asset_mgr;
 };
 
 game_ctx game_context_init() {
-    game_ctx game = (game_ctx) malloc(sizeof(struct game_ctx_s));
+    game_ctx game = (game_ctx) calloc(1, sizeof(struct game_ctx_s));
     if (game == NULL) {
         log_info("Failed to initialize game");
         return game;
     }
 
-    game->a = asset_load("assets/images/tiles.png", 16);
-    if (game->a == NULL) {
-        free(game);
+    game->asset_mgr = asset_manager_init();
+    if (game->asset_mgr == NULL) {
+        game_context_cleanup(game);
         return NULL;
     }
+
+    // Pre-load some textures
+    asset_manager_texture_preload(game->asset_mgr, "tiles/cobblestone_1");
 
     return game;
 }
@@ -31,29 +34,19 @@ int game_update_handler(renderer_ctx ctx, double dt) {
         return 1;
     }
 
-    if (!asset_is_gpu_loaded(game->a)) {
-        log_info("Loading asset to GPU");
-        if (asset_to_gpu(game->a) != 0) {
-            log_error("Failed to load asset to GPU");
-        }
-        else {
-            log_info("Succesfully loaded asset to GPU");
-        }
-    }
-
-    if (asset_is_gpu_loaded(game->a)) {
-        texture t = texture_from_asset(game->a, 0);
-        
+    texture cobble = asset_manager_get_texture(game->asset_mgr, "tiles/cobblestone_1");
+    if (cobble != NULL) {        
         for (int x = 0; x < 45; x++) {
             for (int y = 0; y < 30; y++) {
-                renderer_draw_texture(ctx, t, x * 16.0, y * 16.0);
+                renderer_draw_texture(ctx, cobble, x * 16.0, y * 16.0);
             }
         }
-    
-        texture_destroy(t);
+    }
+    else {
+        log_error("Failed to get texture!");
     }
 
-    log_debug("Elapsed: %lf", dt);
+    // log_debug("Elapsed: %lf", dt);
 
     return 0;
 }
@@ -76,6 +69,8 @@ int game_scroll_handler(renderer_ctx ctx, double, double) {
 
 void game_context_cleanup(game_ctx ctx) {
     if (ctx == NULL) return;
-    asset_unload(ctx->a);
+    if (ctx->asset_mgr != NULL) {
+        asset_manager_cleanup(ctx->asset_mgr);
+    }
     free(ctx);
 }

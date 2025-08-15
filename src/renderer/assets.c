@@ -31,6 +31,7 @@ asset asset_load(const char* filename, int tile_size) {
     if (a == NULL) {
         return NULL;
     }
+    a->id = 0;
     a->flags = 0;
     a->tile_size = tile_size;
     if (tile_size > 0) {
@@ -54,6 +55,10 @@ int asset_is_permanent(asset a) {
 
 int asset_is_tiled(asset a) {
     return (a->flags & ASSET_TILED) > 0;
+}
+
+unsigned int asset_get_id(asset a) {
+    return a->id;
 }
 
 void asset_unload(asset a) {
@@ -80,7 +85,7 @@ int asset_to_gpu(asset a) {
         log_warning("Loading previously loaded asset to GPU");
     }
 
-    GLuint tex_id;
+    GLuint tex_id = 0;
     glGenTextures(1, &tex_id);
     glBindTexture(GL_TEXTURE_2D, tex_id);
 

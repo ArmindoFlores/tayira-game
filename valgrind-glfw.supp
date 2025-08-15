@@ -1,0 +1,37 @@
+{
+  libdbus_reachable_at_exit
+  Memcheck:Leak
+  match-leak-kinds: all
+  ...
+  obj:*/libdbus-1.so*
+}
+
+{
+  libX11_reachable_at_exit
+  Memcheck:Leak
+  match-leak-kinds: all
+  ...
+  obj:*/libX11.so*
+}
+
+{
+  suppress_dl
+  Memcheck:Leak
+  match-leak-kinds: all
+  ...
+  obj:*/ld-*.so*
+}
+
+{
+  suppress_nvidia
+  Memcheck:BadSize
+  ...
+  obj:*/libGLX_nvidia.so*
+}
+
+{
+  suppress_nvidia
+  Memcheck:ReallocZero
+  ...
+  obj:*/libGLX_nvidia.so*
+}

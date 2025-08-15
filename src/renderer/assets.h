@@ -15,6 +15,7 @@ int asset_is_gpu_loaded(asset);
 int asset_is_permanent(asset);
 int asset_is_tiled(asset);
 int asset_to_gpu(asset);
+unsigned int asset_get_id(asset);
 void asset_gpu_cleanup(asset);
 void asset_unload(asset);
 
