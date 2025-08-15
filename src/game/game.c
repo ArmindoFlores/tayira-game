@@ -46,7 +46,7 @@ int game_update_handler(renderer_ctx ctx, double dt) {
         log_error("Failed to get texture!");
     }
 
-    // log_debug("Elapsed: %lf", dt);
+    log_debug("Elapsed: %lf", dt);
 
     return 0;
 }

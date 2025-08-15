@@ -1,17 +1,20 @@
 #version 330 core
-layout(location = 0) in vec2 aPos;      // 0..1
+layout(location = 0) in vec2 aPos;
 layout(location = 1) in vec2 aTexCoord;
+layout(location = 2) in vec4 iPosSize;
+layout(location = 3) in vec4 iUV;
 
 out vec2 TexCoord;
 
-uniform vec2 uPos;       // pixel position
-uniform vec2 uSize;      // pixel size
-uniform vec2 uScreen;    // screen width, height
+uniform vec2 uScreen;
+uniform vec2 uPan;
 
 void main() {
-    vec2 pixelPos = aPos * uSize + uPos;
+    vec2 pixelPos = aPos * iPosSize.zw + iPosSize.xy - uPan;
     vec2 ndc = (pixelPos / uScreen) * 2.0 - 1.0;
-    ndc.y = -ndc.y; // flip if top-left is origin
+    ndc.y = -ndc.y;
     gl_Position = vec4(ndc, 0.0, 1.0);
-    TexCoord = aTexCoord;
+
+    vec2 uv = mix(iUV.xy, iUV.zw, aPos);
+    TexCoord = uv;
 }
