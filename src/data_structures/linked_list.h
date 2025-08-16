@@ -1,15 +1,16 @@
 #ifndef _H_LINKED_LIST_H_
 #define _H_LINKED_LIST_H_
 
+#include <stddef.h>
+#include "data_structures.h"
+
 typedef struct linked_list_s* linked_list;
-typedef struct linked_list_iterator_s* linked_list_iterator;
 
 linked_list linked_list_create();
-int linked_list_pushfront(linked_list, void *element);
+int linked_list_pushfront(linked_list, const void *element);
 void *linked_list_popfront(linked_list);
-linked_list_iterator linked_list_begin_iter(linked_list);
-void *linked_list_next_iter(linked_list_iterator);
-void linked_list_end_iter(linked_list_iterator);
+size_t linked_list_foreach(linked_list, iteration_result (*callback) (const void* value));
+size_t linked_list_foreach_args(linked_list, iteration_result (*callback) (const void* value, void* args), void* args);
 void linked_list_destroy(linked_list);
 
 #endif

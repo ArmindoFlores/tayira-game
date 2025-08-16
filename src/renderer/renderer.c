@@ -203,6 +203,7 @@ renderer_ctx renderer_init(int width, int height, const char *title) {
     }
     
     if (!glfwInit()) {
+        free(ctx);
         log_error("Failed to init GLFW");
         return NULL;
     }

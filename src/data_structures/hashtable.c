@@ -18,10 +18,8 @@ struct hashtable_s {
     struct hashtable_entry_list_element_s **entries;
 };
 
-struct hashtable_iterator_s {
-    hashtable t;
-    size_t index;
-    struct hashtable_entry_list_element_s *cur;
+struct f_cb_s {
+    iteration_result (*f) (const hashtable_entry*);
 };
 
 hashtable hashtable_create() {
@@ -173,37 +171,34 @@ int hashtable_delete(hashtable h, const char* key) {
     return 1;
 }
 
-hashtable_iterator hashtable_begin_iter(hashtable t) {
-    hashtable_iterator it = (hashtable_iterator) malloc(sizeof(struct hashtable_iterator_s));
-    if (it == NULL) {
-        return NULL;
-    }
-    it->t = t;
-    it->index = 0;
-    it->cur = it->t->entries[0];
-    return it;
-}
+size_t hashtable_foreach_args(hashtable t, iteration_result (*callback) (const hashtable_entry*, void* args), void* args) {
+    size_t visited = 0;
 
-hashtable_entry hashtable_next_iter(hashtable_iterator it) {
-    while (it->cur == NULL) {
-        if (it->index >= it->t->capacity - 1 ) {
-            break;
+    for (size_t i = 0; i < t->capacity; ++i) {
+        struct hashtable_entry_list_element_s *node = t->entries[i];
+        while (node) {
+            struct hashtable_entry_list_element_s *next = node->next;
+
+            hashtable_entry entry = { .key = node->key, .value = node->element };
+            ++visited;
+
+            if (callback(&entry, args) == ITERATION_BREAK) {
+                return visited;
+            }
+            node = next;
         }
-        it->cur = it->t->entries[++it->index];
     }
-    if (it->cur == NULL) {
-        return (hashtable_entry) {0};
-    }
-    hashtable_entry result = {
-        .value = it->cur->element,
-        .key = it->cur->key
-    };
-    it->cur = it->cur->next;
-    return result;
+    return visited;
 }
 
-void hashtable_end_iter(hashtable_iterator it) {
-    free(it);
+static iteration_result foreach_noargs_helper(const hashtable_entry *entry, void* args) {
+    struct f_cb_s *f_cb = (struct f_cb_s *) args;
+    return f_cb->f(entry);
+}
+
+size_t hashtable_foreach(hashtable t, iteration_result (*callback) (const hashtable_entry*)) {
+    struct f_cb_s f_cb = { .f = callback };
+    return hashtable_foreach_args(t, foreach_noargs_helper, &f_cb);
 }
 
 void hashtable_destroy(hashtable h) {

@@ -10,9 +10,8 @@ struct linked_list_s {
     struct linked_list_element_s *head;
 };
 
-struct linked_list_iterator_s {
-    linked_list list;
-    struct linked_list_element_s *current;
+struct f_cb_s {
+    iteration_result (*f) (const void*);
 };
 
 linked_list linked_list_create() {
@@ -24,13 +23,13 @@ linked_list linked_list_create() {
     return ll;
 }
 
-int linked_list_pushfront(linked_list ll, void *element) {
+int linked_list_pushfront(linked_list ll, const void *element) {
     struct linked_list_element_s *new_element = (struct linked_list_element_s *) malloc(sizeof(struct linked_list_element_s));
     if (new_element == NULL) {
         return 1;
     }
 
-    new_element->value = element;
+    new_element->value = (void *) element;
 
     if (ll->head == NULL) {
         ll->head = new_element;
@@ -55,27 +54,24 @@ void *linked_list_popfront(linked_list ll) {
     return result;
 }
 
-linked_list_iterator linked_list_begin_iter(linked_list ll) {
-    linked_list_iterator it = (linked_list_iterator) malloc(sizeof (struct linked_list_iterator_s));
-    if (it == NULL) {
-        return NULL;
+size_t linked_list_foreach_args(linked_list ll, iteration_result (*callback) (const void* value, void* args), void* args) {
+    size_t visited = 0;
+    for (struct linked_list_element_s *cur = ll->head; cur != NULL; cur = cur->next) {
+        iteration_result result = callback(cur->value, args);
+        visited++;
+        if (result == ITERATION_BREAK) break;
     }
-    it->list = ll;
-    it->current = ll->head;
-    return it;
+    return visited;
 }
 
-void *linked_list_next_iter(linked_list_iterator it) {
-    if (it->current == NULL) {
-        return NULL;
-    }
-    void *result = it->current->value;
-    it->current = it->current->next;
-    return result;
+static iteration_result foreach_noargs_helper(const void* value, void* args) {
+    struct f_cb_s *f_cb = (struct f_cb_s *) args;
+    return f_cb->f(value);
 }
 
-void linked_list_end_iter(linked_list_iterator it) {
-    free(it);
+size_t linked_list_foreach(linked_list ll, iteration_result (*callback) (const void* value)) {
+    struct f_cb_s f_cb = { .f = callback };
+    return linked_list_foreach_args(ll, foreach_noargs_helper, &f_cb);
 }
 
 void linked_list_destroy(linked_list ll) {

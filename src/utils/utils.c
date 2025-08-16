@@ -14,6 +14,11 @@ char *utils_read_whole_file(const char* filename) {
     long file_size = ftell(fp);
     fseek(fp, 0, SEEK_SET);
 
+    if (file_size < 0) {
+        fclose(fp);
+        return NULL;
+    }
+
     char *contents = malloc(file_size + 1);
     if (contents == NULL) {
         fclose(fp);

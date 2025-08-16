@@ -22,7 +22,7 @@ game_ctx game_context_init() {
     }
 
     // Pre-load some textures
-    asset_manager_texture_preload(game->asset_mgr, "tiles/cobblestone_1");
+    asset_manager_texture_preload(game->asset_mgr, "tiles/cobblestone_2");
 
     return game;
 }
@@ -34,7 +34,7 @@ int game_update_handler(renderer_ctx ctx, double dt) {
         return 1;
     }
 
-    texture cobble = asset_manager_get_texture(game->asset_mgr, "tiles/cobblestone_1");
+    texture cobble = asset_manager_get_texture(game->asset_mgr, "tiles/cobblestone_2");
     if (cobble != NULL) {        
         for (int x = 0; x < 45; x++) {
             for (int y = 0; y < 30; y++) {
@@ -51,19 +51,19 @@ int game_update_handler(renderer_ctx ctx, double dt) {
     return 0;
 }
 
-int game_key_handler(renderer_ctx ctx, int, int, int, int) {
+int game_key_handler(renderer_ctx, int, int, int, int) {
     return 0;
 }
 
-int game_mouse_button_handler(renderer_ctx ctx, int, int, int) {
+int game_mouse_button_handler(renderer_ctx, int, int, int) {
     return 0;
 }
 
-int game_mouse_move_handler(renderer_ctx ctx, double, double) {
+int game_mouse_move_handler(renderer_ctx, double, double) {
     return 0;
 }
 
-int game_scroll_handler(renderer_ctx ctx, double, double) {
+int game_scroll_handler(renderer_ctx, double, double) {
     return 0;
 }
 
