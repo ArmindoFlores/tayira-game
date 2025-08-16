@@ -37,7 +37,7 @@ all: $(TARGET)
 
 # Link final executable
 $(TARGET): $(MAIN_OBJ) $(TOP_OBJ) $(LIB_FILES) | $(BUILD_DIR)
-	$(CC) $(CFLAGS) -o $@ $(MAIN_OBJ) $(TOP_OBJ) $(filter-out build/liblogger.a build/libdata_structures.a,$(LIB_FILES)) build/libdata_structures.a build/liblogger.a $(LIBS)
+	$(CC) $(CFLAGS) -o $@ $(MAIN_OBJ) $(TOP_OBJ) $(filter-out build/liblogger.a build/libdata_structures.a build/libcjson.a,$(LIB_FILES)) build/libdata_structures.a build/liblogger.a build/libcjson.a $(LIBS)
 
 # Compile main and top-level
 $(BUILD_DIR)/%.o: $(MAIN_DIR)/%.c | $(BUILD_DIR)

@@ -1,0 +1,17 @@
+{
+    "tiles": {
+        "src": "assets/images/tiles.png",
+        "tile_size": 16,
+        "textures": {
+            "cobblestone_1": {
+                "index": 0
+            },
+            "cobblestone_2": {
+                "index": 1
+            },
+            "cobblestone_3": {
+                "index": 2
+            }
+        }
+    }
+}
