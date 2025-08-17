@@ -5,9 +5,11 @@ layout(location = 2) in vec4 iPosSize;
 layout(location = 3) in vec4 iUV;
 
 out vec2 TexCoord;
+out vec4 vColor;
 
 uniform vec2 uScreen;
 uniform vec2 uPan;
+uniform vec4 uColor;
 
 void main() {
     vec2 pixelPos = aPos * iPosSize.zw + iPosSize.xy - uPan;
@@ -17,4 +19,5 @@ void main() {
 
     vec2 uv = mix(iUV.xy, iUV.zw, aPos);
     TexCoord = uv;
+    vColor = uColor;
 }

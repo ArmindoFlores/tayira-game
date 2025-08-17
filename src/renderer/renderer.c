@@ -39,6 +39,7 @@ struct renderer_ctx_s {
     // cached uniforms
     GLint uScreenLoc;
     GLint uPanLoc; 
+    GLint uColorLoc;
 
     int screen_w, screen_h;
 
@@ -46,6 +47,9 @@ struct renderer_ctx_s {
 
     void *user_context;
     int should_close;
+
+    size_t draw_calls, last_draw_calls;
+    size_t drawn_instances, last_drawn_instances;
 };
 
 typedef struct input_callbacks {
@@ -195,6 +199,14 @@ static void init_texture_buffers(renderer_ctx ctx) {
     glBindVertexArray(0);
 }
 
+static GLint get_uniform_location(GLuint shader_program, const char* name) {
+    GLint result = glGetUniformLocation(shader_program, name);
+    if (result == -1) {
+        log_error("Invalid uniform '{s}'", name);
+    }
+    return result;
+}
+
 renderer_ctx renderer_init(int width, int height, const char *title) {
     renderer_ctx ctx = (renderer_ctx) malloc(sizeof(struct renderer_ctx_s));
     if (ctx == NULL) {
@@ -215,6 +227,10 @@ renderer_ctx renderer_init(int width, int height, const char *title) {
     ctx->user_context = NULL;
     ctx->should_close = 0;
     ctx->instance_count = 0;
+    ctx->drawn_instances = 0;
+    ctx->draw_calls = 0;
+    ctx->last_drawn_instances = 0;
+    ctx->last_draw_calls = 0;
     ctx->pan_x = 0;
     ctx->pan_y = 0;
     ctx->screen_w = 1;
@@ -267,8 +283,25 @@ renderer_ctx renderer_init(int width, int height, const char *title) {
     glAttachShader(ctx->shader_program, vs);
     glAttachShader(ctx->shader_program, fs);
     glLinkProgram(ctx->shader_program);
-    ctx->uScreenLoc = glGetUniformLocation(ctx->shader_program, "uScreen");
-    ctx->uPanLoc = glGetUniformLocation(ctx->shader_program, "uPan");
+    ctx->uScreenLoc = get_uniform_location(ctx->shader_program, "uScreen");
+    ctx->uPanLoc = get_uniform_location(ctx->shader_program, "uPan");
+    ctx->uColorLoc = get_uniform_location(ctx->shader_program, "uColor");
+    if (ctx->uScreenLoc == -1) {
+        free(ctx->instances_cpu);
+        free(ctx);
+        return NULL;
+    }
+    if (ctx->uPanLoc == -1) {
+        free(ctx->instances_cpu);
+        free(ctx);
+        return NULL;
+    }
+    if (ctx->uColorLoc == -1) {
+        free(ctx->instances_cpu);
+        free(ctx);
+        return NULL;
+    }
+
     glDeleteShader(vs);
     glDeleteShader(fs);
     glEnable(GL_BLEND);
@@ -285,8 +318,8 @@ void *renderer_get_user_context(renderer_ctx ctx) {
     return ctx->user_context;
 }
 
-void renderer_fill(renderer_ctx, float r, float g, float b) {
-    glClearColor(r, g, b, 1.0f);
+void renderer_fill(renderer_ctx, color_rgba color) {
+    glClearColor(color.r, color.g, color.b, color.a);
     glClear(GL_COLOR_BUFFER_BIT);
 }
 
@@ -301,7 +334,8 @@ void renderer_flush_batch(renderer_ctx ctx) {
 
     glDrawElementsInstanced(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0, ctx->instance_count);
 
-    ctx->instance_count  = 0;
+    ctx->instance_count = 0;
+    ctx->draw_calls++;
 }
 
 void renderer_draw_texture(renderer_ctx ctx, texture t, float x, float y) {
@@ -320,15 +354,24 @@ void renderer_draw_texture(renderer_ctx ctx, texture t, float x, float y) {
     const float w = (float) texture_get_width(t);
     const float h = (float) texture_get_height(t);
 
-    gl_instance_data inst;
-    inst.x = x; inst.y = y; inst.w = w; inst.h = h;
+    gl_instance_data *inst = &ctx->instances_cpu[ctx->instance_count++];
+    inst->x = x; inst->y = y; inst->w = w; inst->h = h;
     
     float vertices[16];
     texture_get_vertices(t, vertices);
-    inst.u0 = vertices[2]; inst.v0 = vertices[3];
-    inst.u1 = vertices[10]; inst.v1 = vertices[11];
+    inst->u0 = vertices[2]; inst->v0 = vertices[3];
+    inst->u1 = vertices[10]; inst->v1 = vertices[11];
+    ctx->drawn_instances++;
+}
 
-    ctx->instances_cpu[ctx->instance_count++] = inst;
+void renderer_set_tint(renderer_ctx ctx, color_rgba color) {
+    renderer_flush_batch(ctx);
+    glUniform4f(ctx->uColorLoc, color.r, color.g, color.b, color.a);
+}
+
+void renderer_clear_tint(renderer_ctx ctx) {
+    renderer_flush_batch(ctx);
+    glUniform4f(ctx->uColorLoc, 1.0f, 1.0f, 1.0f, 1.0f);
 }
 
 static void renderer_begin_batch(renderer_ctx ctx) {
@@ -342,11 +385,23 @@ static void renderer_begin_batch(renderer_ctx ctx) {
     if (ctx->uPanLoc >= 0) {
         glUniform2f(ctx->uPanLoc, ctx->pan_x, ctx->pan_y);
     }
+    glUniform4f(ctx->uColorLoc, 1.0f, 1.0f, 1.0f, 1.0f);
+    ctx->draw_calls = 0;
+    ctx->drawn_instances = 0;
 }
 
 static void renderer_end_batch(renderer_ctx ctx) {
     renderer_flush_batch(ctx);
     glBindVertexArray(0);
+    ctx->last_draw_calls = ctx->draw_calls;
+    ctx->last_drawn_instances = ctx->drawn_instances;
+}
+
+renderer_statistics renderer_get_stats(renderer_ctx ctx) {
+    return (renderer_statistics) {
+        .draw_calls = ctx->last_draw_calls,
+        .drawn_instances = ctx->last_drawn_instances
+    };
 }
 
 void renderer_run(

@@ -136,7 +136,12 @@ font font_create(asset_manager_ctx ctx, const char *asset_id, float spacing, flo
     return f;
 }
 
-int font_render(font f, renderer_ctx renderer, const char* string, int x, int y) {
+int font_render(font f, renderer_ctx renderer, const char* string, int x, int y, color_rgba color) {
+    int set_tint = color.r != 1.0f || color.g != 1.0f || color.b != 1.0f || color.a != 1.0f;
+    if (set_tint) {
+        renderer_set_tint(renderer, color);
+    }
+
     char glyph_key_buffer[] = " ";
     float cur_x = (float) x;
     float cur_y = (float) y;
@@ -164,6 +169,7 @@ int font_render(font f, renderer_ctx renderer, const char* string, int x, int y)
         if (t == NULL || t_info == NULL) {
             // TODO: render a fallback glyph, and only if that one isn't found, return early
             log_warning("Failed to render glyph '{c}'", glyph_key_buffer[0]);
+            if (set_tint) renderer_clear_tint(renderer);
             return 1;
         }
         
@@ -177,6 +183,7 @@ int font_render(font f, renderer_ctx renderer, const char* string, int x, int y)
         renderer_draw_texture(renderer, t, x_pos, y_pos);
         cur_x += f->spacing + t_info->width;
     }
+    if (set_tint) renderer_clear_tint(renderer);
     return 0;
 }
 
@@ -184,7 +191,6 @@ int font_load(font f) {
     if (load_font_config(f) != 0) {
         return 1;
     }
-    log_debug("Font config: {hashtable:glyph_config}", f->font_config);
     return asset_manager_asset_and_textures_preload(f->asset_mgr, f->base_asset_id);
 }
 

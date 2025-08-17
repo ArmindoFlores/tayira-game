@@ -4,6 +4,15 @@
 #include "logger/logger.h"
 #include "assets.h"
 
+typedef struct color_rgba {
+    float r, g, b, a;
+} color_rgba;
+
+typedef struct renderer_statistics {
+    size_t draw_calls;
+    size_t drawn_instances;
+} renderer_statistics;
+
 typedef struct renderer_ctx_s *renderer_ctx;
 typedef int (*key_callback) (renderer_ctx, int key, int scancode, int action, int mods);
 typedef int (*mouse_button_callback) (renderer_ctx, int button, int action, int mods);
@@ -13,7 +22,7 @@ typedef int (*update_callback) (renderer_ctx, double dt);
 renderer_ctx renderer_init(int width, int height, const char *title);
 void renderer_register_user_context(renderer_ctx, void *user_context);
 void *renderer_get_user_context(renderer_ctx);
-void renderer_fill(renderer_ctx, float r, float g, float b);
+void renderer_fill(renderer_ctx, color_rgba);
 void renderer_run(
     renderer_ctx, 
     update_callback update_cb, 
@@ -23,6 +32,9 @@ void renderer_run(
     mouse_move_callback scroll_cb
 );
 void renderer_draw_texture(renderer_ctx, texture, float x, float y);
+void renderer_set_tint(renderer_ctx, color_rgba);
+void renderer_clear_tint(renderer_ctx);
+renderer_statistics renderer_get_stats(renderer_ctx);
 void renderer_cleanup(renderer_ctx);
 
 #endif
