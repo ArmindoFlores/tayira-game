@@ -52,7 +52,15 @@ int game_update_handler(renderer_ctx ctx, double dt) {
                 renderer_draw_texture(ctx, cobble, x * 16.0, y * 16.0);
             }
         }
-        font_render(game->base_font_16, ctx, "Hello world! This is some bigger text!\nCan you read me?", 0, 0);
+        font_render(
+            game->base_font_16, 
+            ctx, 
+            "abcdefghijklmnopqrstuvwxyz\n"
+            "ABCDEFGHIJKLMNOPQRSTUVWXYZ\n"
+            "0123456789.:,;([*!?'])_^@><=-\\/", 
+            300, 
+            200
+        );
     }
     else {
         log_throttle_error(5000, "Failed to get texture!");

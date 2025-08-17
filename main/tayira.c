@@ -1,4 +1,5 @@
 #include "game/game.h"
+#include "game/font.h"
 #include "renderer/renderer.h"
 #include "data_structures/hashtable.h"
 #include "data_structures/linked_list.h"
@@ -32,6 +33,10 @@ iteration_result print_hashtable_entry(const hashtable_entry *entry, void *_args
 int print_hashtable(FILE *stream, const char* options, va_list args) {
     hashtable t = va_arg(args, hashtable);
     if (options == NULL) return 0;
+    if (t == NULL) {
+        fprintf(stream, "(hashtable) {NULL}");
+        return 0;
+    }
     
     fputc('{', stream);
 
@@ -71,6 +76,10 @@ iteration_result print_linked_list_value(const void *value, void *_args) {
 int print_linked_list(FILE *stream, const char* options, va_list args) {
     linked_list ll = va_arg(args, linked_list);
     if (options == NULL) return 0;
+        if (ll == NULL) {
+        fprintf(stream, "(linked_list) {NULL}");
+        return 0;
+    }
     
     fputc('[', stream);
 
@@ -88,6 +97,7 @@ int print_linked_list(FILE *stream, const char* options, va_list args) {
 void register_loggers() {
     asset_register_log_printer();
     texture_register_log_printer();
+    font_register_log_printer();
     log_register_printer("hashtable", print_hashtable);
     log_register_printer("linked_list", print_linked_list);
 }

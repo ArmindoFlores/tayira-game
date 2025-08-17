@@ -11,5 +11,6 @@ int font_render(font, renderer_ctx, const char*, int x, int y);
 int font_load(font);
 int font_unload(font);
 void font_destroy(font);
+void font_register_log_printer();
 
 #endif

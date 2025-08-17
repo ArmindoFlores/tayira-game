@@ -14,7 +14,7 @@ struct asset_manager_ctx_s {
     hashtable textures;
 };
 
-static int init_asset_config(asset_manager_ctx ctx) {
+static int load_asset_config(asset_manager_ctx ctx) {
     ctx->assets = hashtable_create();
     if (ctx->assets == NULL) {
         return 1;
@@ -143,7 +143,7 @@ asset_manager_ctx asset_manager_init() {
         asset_manager_cleanup(ctx);
         return NULL;
     }
-    if (init_asset_config(ctx) != 0) {
+    if (load_asset_config(ctx) != 0) {
         asset_manager_cleanup(ctx);
         return NULL;
     }
