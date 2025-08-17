@@ -147,7 +147,7 @@ int hashtable_set(hashtable h, const char* key, void* element) {
     return 0;
 }
 
-int hashtable_delete(hashtable h, const char* key) {
+void* hashtable_delete(hashtable h, const char* key) {
     uint64_t hash = hash_key(key);
     uint64_t index = index_from_hash(h, hash);
 
@@ -160,15 +160,16 @@ int hashtable_delete(hashtable h, const char* key) {
             else {
                 h->entries[index] = ptr->next;
             }
+            void *element = ptr->element;
             free(ptr->key);
             free(ptr);
             h->size--;
-            return 0;
+            return element;
         }
         prev_ptr = ptr;
         ptr = ptr->next;
     }
-    return 1;
+    return NULL;
 }
 
 size_t hashtable_foreach_args(hashtable t, iteration_result (*callback) (const hashtable_entry*, void* args), void* args) {
@@ -183,7 +184,7 @@ size_t hashtable_foreach_args(hashtable t, iteration_result (*callback) (const h
             ++visited;
 
             if (callback(&entry, args) == ITERATION_BREAK) {
-                return visited;
+                return SIZE_MAX;
             }
             node = next;
         }

@@ -1,11 +1,13 @@
 #include "game.h"
 #include "asset_manager.h"
+#include "font.h"
 #include "logger/logger.h"
 #include <stdlib.h>
 
 struct game_ctx_s {
     int level;
     asset_manager_ctx asset_mgr;
+    font base_font_16;
 };
 
 game_ctx game_context_init() {
@@ -21,8 +23,17 @@ game_ctx game_context_init() {
         return NULL;
     }
 
+    game->base_font_16 = font_create(game->asset_mgr, "font-regular-16", 2, 16);
+    if (game->base_font_16 == NULL) {
+        game_context_cleanup(game);
+        return NULL;
+    }
+
     // Pre-load some textures
-    asset_manager_texture_preload(game->asset_mgr, "tiles/cobblestone_2");
+    asset_manager_texture_preload(game->asset_mgr, "tiles/cobblestone_1");
+    
+    // Pre-load font textures
+    font_load(game->base_font_16);
 
     return game;
 }
@@ -34,19 +45,20 @@ int game_update_handler(renderer_ctx ctx, double dt) {
         return 1;
     }
 
-    texture cobble = asset_manager_get_texture(game->asset_mgr, "tiles/cobblestone_2");
+    texture cobble = asset_manager_get_texture(game->asset_mgr, "tiles/cobblestone_1");
     if (cobble != NULL) {        
         for (int x = 0; x < 45; x++) {
             for (int y = 0; y < 30; y++) {
                 renderer_draw_texture(ctx, cobble, x * 16.0, y * 16.0);
             }
         }
+        font_render(game->base_font_16, ctx, "Hello world! This is some bigger text!\nCan you read me?", 0, 0);
     }
     else {
-        log_error("Failed to get texture!");
+        log_throttle_error(5000, "Failed to get texture!");
     }
 
-    log_debug("Elapsed: %lf", dt);
+    log_throttle_debug(1000, "Elapsed: {lf}", dt);
 
     return 0;
 }
@@ -69,6 +81,9 @@ int game_scroll_handler(renderer_ctx, double, double) {
 
 void game_context_cleanup(game_ctx ctx) {
     if (ctx == NULL) return;
+    if (ctx->base_font_16 != NULL) {
+        font_destroy(ctx->base_font_16);
+    }
     if (ctx->asset_mgr != NULL) {
         asset_manager_cleanup(ctx->asset_mgr);
     }

@@ -11,8 +11,6 @@ struct asset_s {
     int width;
     int height;
     int channels;
-    
-    int tile_size;
 
     unsigned char *pixels;
     unsigned char flags;
@@ -22,19 +20,47 @@ struct asset_s {
 
 struct texture_s {
     GLuint asset_id;
-    int width, height;
+    int width, height, offset_x, offset_y;
     float vertices[16];
 };
 
-asset asset_load(const char* filename, int tile_size) {
+static int asset_printer_fn(FILE *stream, const char *, va_list args) {
+    asset a = va_arg(args, asset);
+    fprintf(
+        stream,
+        "(asset) { .width = %d, .height = %d, .channels = %d, .pixels = %p, .flags = %d, .id = %u }",
+        a->width,
+        a->height,
+        a->channels,
+        a->pixels,
+        (int) a->flags,
+        a->id
+    );
+    return 0;
+}
+
+static int texture_printer_fn(FILE *stream, const char *, va_list args) {
+    texture t = va_arg(args, texture);
+    fprintf(
+        stream,
+        "(texture) { .width = %d, .height = %d, .offset_x = %d, .offset_y = %d, .asset_id = %u }",
+        t->width,        
+        t->height,
+        t->offset_x,
+        t->offset_y,
+        t->asset_id
+    );
+    return 0;
+}
+
+asset asset_load(const char* filename, int tiled) {
     asset a = (asset) malloc(sizeof(struct asset_s));
     if (a == NULL) {
         return NULL;
     }
     a->id = 0;
     a->flags = 0;
-    a->tile_size = tile_size;
-    if (tile_size > 0) {
+    if (tiled) {
         a->flags |= ASSET_TILED;
     }
     a->pixels = stbi_load(filename, &a->width, &a->height, &a->channels, 4);
@@ -66,6 +92,10 @@ void asset_unload(asset a) {
     stbi_image_free(a->pixels);
     asset_gpu_cleanup(a);
     free(a);
+}
+
+void asset_register_log_printer() {
+    log_register_printer("asset", asset_printer_fn);
 }
 
 static GLenum channels_to_format(int channels) {
@@ -124,7 +154,7 @@ void asset_gpu_cleanup(asset a) {
     a->flags &= ~ASSET_GPU_LOADED;
 }
 
-texture texture_from_asset(asset a, int index) {
+texture texture_from_asset(asset a, int width, int height, int offset_x, int offset_y) {
     if (!asset_is_gpu_loaded(a)) {
         log_error("Tried to instanciate a texture from an unloaded asset");
         return NULL;
@@ -138,25 +168,19 @@ texture texture_from_asset(asset a, int index) {
     t->asset_id = a->id;
     
     if (asset_is_tiled(a)) {
-        int cols = a->width / a->tile_size;
-        int rows = a->height / a->tile_size;
-
-        int col = index % cols;
-        int row = index / cols;
-
-        if (row > rows) {
-            free(t);
-            log_error("Tried to load a texture from an asset at (%d, %d), but asset has dimensions (%d, %d)", col, row, cols, rows);
-            return NULL;
-        }
-
-        float sub_x = (float) col * a->tile_size;
-        float sub_y = (float) row * a->tile_size;
+        float sub_x = (float) offset_x;
+        float sub_y = (float) offset_y;
 
         float u0 = sub_x / a->width;
         float v0 = sub_y / a->height;
-        float u1 = (sub_x + a->tile_size) / a->width;
-        float v1 = (sub_y + a->tile_size) / a->height;
+        float u1 = (sub_x + width) / a->width;
+        float v1 = (sub_y + height) / a->height;
+
+        if (sub_x + width > a->width || sub_y + height > a->height) {
+            log_error("{texture} indexing out of {asset} bounds", t, a);
+            free(t);
+            return NULL;
+        }
 
         float vertices[] = {
             0.0f, 1.0f, u0, v0,
@@ -165,8 +189,10 @@ texture texture_from_asset(asset a, int index) {
             0.0f, 0.0f, u0, v1
         };
         memcpy(t->vertices, vertices, sizeof(vertices));
-        t->width = a->tile_size;
-        t->height = a->tile_size;
+        t->width = width;
+        t->height = height;
+        t->offset_x = offset_x;
+        t->offset_y = offset_y;
     }
     else {
         float vertices[] = {
@@ -178,6 +204,8 @@ texture texture_from_asset(asset a, int index) {
         memcpy(t->vertices, vertices, sizeof(vertices));
         t->width = a->width;
         t->height = a->height;
+        t->offset_x = 0;
+        t->offset_y = 0;
     }
 
     return t;
@@ -201,4 +229,8 @@ void texture_get_vertices(texture t, float vertices[16]) {
 
 void texture_destroy(texture t) {
     free(t);
+}
+
+void texture_register_log_printer() {
+    log_register_printer("texture", texture_printer_fn);
 }

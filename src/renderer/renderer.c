@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-static const char BASE_SHADER_PATH[] = "src/shaders/";
+static const char BASE_SHADER_PATH[] = "assets/shaders/";
 static const int MAX_DRAW_INSTANCES = 16384;
 static const float QUAD_VERTS[] = {
     0.0f, 1.0f, 0.0f, 1.0f,
@@ -92,11 +92,11 @@ static GLuint compile_shader(GLenum type, const char *filename) {
     GLuint shader = glCreateShader(type);
     char *shader_source = load_shader(filename);
     if (shader_source == NULL) {
-        log_error("Failed to obtain shader source for shader '%s'", filename);
+        log_error("Failed to obtain shader source for shader '{s}'", filename);
         return 0;
     }
 
-    log_info("Compiling shader '%s'", filename);
+    log_info("Compiling shader '{s}'", filename);
     glShaderSource(shader, 1, (const char* const*) &shader_source, NULL);
     glCompileShader(shader);
     GLint success;
@@ -104,7 +104,7 @@ static GLuint compile_shader(GLenum type, const char *filename) {
     if (!success) {
         char log[512];
         glGetShaderInfoLog(shader, 512, NULL, log);
-        log_error("Shader compilation error: %s\n", log);
+        log_error("Shader compilation error: {s}\n", log);
         shader = 0;
     }
     free(shader_source);
@@ -271,6 +271,8 @@ renderer_ctx renderer_init(int width, int height, const char *title) {
     ctx->uPanLoc = glGetUniformLocation(ctx->shader_program, "uPan");
     glDeleteShader(vs);
     glDeleteShader(fs);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     return ctx;
 }

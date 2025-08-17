@@ -1,5 +1,6 @@
 #include "linked_list.h"
 #include <stdlib.h>
+#include <stdint.h>
 
 struct linked_list_element_s {
     void *value;
@@ -59,7 +60,7 @@ size_t linked_list_foreach_args(linked_list ll, iteration_result (*callback) (co
     for (struct linked_list_element_s *cur = ll->head; cur != NULL; cur = cur->next) {
         iteration_result result = callback(cur->value, args);
         visited++;
-        if (result == ITERATION_BREAK) break;
+        if (result == ITERATION_BREAK) return SIZE_MAX;
     }
     return visited;
 }
@@ -76,5 +77,11 @@ size_t linked_list_foreach(linked_list ll, iteration_result (*callback) (const v
 
 void linked_list_destroy(linked_list ll) {
     if (ll == NULL) return;
+    struct linked_list_element_s *cur = ll->head;
+    while (cur != NULL) {
+        struct linked_list_element_s *next = cur->next;
+        free(cur);
+        cur = next;
+    }
     free(ll);
 }
