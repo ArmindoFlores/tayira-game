@@ -62,7 +62,7 @@ int game_update_handler(renderer_ctx ctx, double dt) {
     }
 
     if (game->debug_info) {
-        renderer_decrement_layer(ctx);
+        renderer_increment_layer(ctx);
         char buffer[128];
         renderer_statistics stats = renderer_get_stats(ctx); 
         int chars_written = snprintf(

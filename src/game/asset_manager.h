@@ -7,6 +7,7 @@ typedef struct asset_manager_ctx_s* asset_manager_ctx;
 
 typedef struct asset_info {
     char *asset_src;
+    char *asset_partial_src;
 } asset_info;
 
 typedef struct texture_info {
@@ -18,6 +19,7 @@ asset_manager_ctx asset_manager_init();
 int asset_manager_asset_and_textures_preload(asset_manager_ctx, const char* asset_id);
 asset asset_manager_asset_gpu_preload(asset_manager_ctx, const char* asset_id);
 asset asset_manager_asset_preload(asset_manager_ctx, const char* asset_id);
+asset_info* asset_manager_get_asset_info(asset_manager_ctx, const char* asset_id);
 int asset_manager_asset_unload(asset_manager_ctx, const char* asset_id);
 texture asset_manager_texture_preload(asset_manager_ctx, const char* texture_id);
 texture asset_manager_get_texture(asset_manager_ctx, const char* texture_id);

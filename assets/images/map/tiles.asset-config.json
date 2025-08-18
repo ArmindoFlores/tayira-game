@@ -1,0 +1,23 @@
+{
+    "filetype": ".png",
+    "textures": {
+        "cobblestone_1": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 0,
+            "offset_y": 0
+        },
+        "cobblestone_2": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 0,
+            "offset_y": 16
+        },
+        "cobblestone_3": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 0,
+            "offset_y": 32
+        }
+    }
+}

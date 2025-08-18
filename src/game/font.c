@@ -21,6 +21,17 @@ struct font_s {
     char *texture_id_buffer;
 };
 
+static char *get_font_path(const char *partial_path) {
+    char *fullpath = (char*) calloc(strlen(partial_path) + 25, sizeof(char));
+    if (fullpath == NULL) {
+        return NULL;
+    }
+    strcpy(fullpath, "assets/");
+    strcat(fullpath, partial_path);
+    strcat(fullpath, ".font-config.json");
+    return fullpath;
+}
+
 static int load_font_config(font f) {
     if (f->font_config != NULL) return 0;
 
@@ -29,7 +40,20 @@ static int load_font_config(font f) {
         return 1;
     }
 
-    char *config_contents = utils_read_whole_file("assets/fonts.json");
+    asset_info *a_info = asset_manager_get_asset_info(f->asset_mgr, f->base_asset_id);
+    if (a_info == NULL) {
+        log_error("Failed to get asset info for font '{s}'", f->base_asset_id);
+        return 1;
+    }
+
+    char *filename = get_font_path(a_info->asset_partial_src);
+    if (filename == NULL) {
+        log_error("Failed to get path to config file for font '{s}'", f->base_asset_id);
+        return 1;
+    }
+
+    char *config_contents = utils_read_whole_file(filename);
+    free(filename);
     if (config_contents == NULL) {
         log_error("Failed to read config file for font '{s}'", f->base_asset_id);
         return 1;
@@ -54,6 +78,7 @@ static int load_font_config(font f) {
         return 1;
     }
 
+    log_debug("Going through each glyph...");
     // Iterate through the config for each glyph and store it
     cJSON *glyph_config_json = NULL;
     cJSON_ArrayForEach(glyph_config_json, font_config) {
@@ -168,7 +193,7 @@ int font_render(font f, renderer_ctx renderer, const char* string, int x, int y,
         texture_info *t_info = asset_manager_get_texture_info(f->asset_mgr, f->texture_id_buffer);
         if (t == NULL || t_info == NULL) {
             // TODO: render a fallback glyph, and only if that one isn't found, return early
-            log_warning("Failed to render glyph '{c}'", glyph_key_buffer[0]);
+            log_throttle_warning(5000, "Failed to render glyph '{c}'", glyph_key_buffer[0]);
             if (set_tint) renderer_clear_tint(renderer);
             return 1;
         }

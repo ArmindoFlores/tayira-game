@@ -66,7 +66,7 @@ iteration_result print_linked_list_value(const void *value, void *_args) {
     }
     else {
         // User did not specify the type
-        strcpy(format_buffer, "{p}");
+        strcpy(format_buffer, "{p}, ");
     }
 
     log_format(args->stream, format_buffer, value);
