@@ -17,7 +17,7 @@ typedef struct renderer_ctx_s *renderer_ctx;
 typedef int (*key_callback) (renderer_ctx, int key, int scancode, int action, int mods);
 typedef int (*mouse_button_callback) (renderer_ctx, int button, int action, int mods);
 typedef int (*mouse_move_callback) (renderer_ctx, double x, double y);
-typedef int (*update_callback) (renderer_ctx, double dt);
+typedef int (*update_callback) (renderer_ctx, double dt, double t);
 
 renderer_ctx renderer_init(int width, int height, const char *title);
 void renderer_register_user_context(renderer_ctx, void *user_context);

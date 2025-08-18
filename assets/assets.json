@@ -1,4 +1,17 @@
 {
     "tiles": "images/map/tiles",
-    "font-regular-16": "images/fonts/regular-16"
+    "font-regular-16": "images/fonts/regular-16",
+    "unarmed_idle": "images/player/unarmed_idle",
+    "sword_idle": "images/player/sword_idle",
+    "unarmed_walk": "images/player/unarmed_walk",
+    "unarmed_death": "images/player/unarmed_death",
+    "sword_death": "images/player/sword_death",
+    "sword_walk_attack": "images/player/sword_walk_attack",
+    "unarmed_hurt": "images/player/unarmed_hurt",
+    "sword_attack": "images/player/sword_attack",
+    "sword_hurt": "images/player/sword_hurt",
+    "sword_run": "images/player/sword_run",
+    "sword_walk": "images/player/sword_walk",
+    "sword_run_attack": "images/player/sword_run_attack",
+    "unarmed_run": "images/player/unarmed_run"
 }

@@ -34,6 +34,7 @@ game_ctx game_context_init() {
 
     // Pre-load some textures
     asset_manager_texture_preload(game->asset_mgr, "tiles/cobblestone_1");
+    asset_manager_asset_and_textures_preload(game->asset_mgr, "unarmed_walk");
     
     // Pre-load font textures
     font_load(game->base_font_16);
@@ -41,7 +42,7 @@ game_ctx game_context_init() {
     return game;
 }
 
-int game_update_handler(renderer_ctx ctx, double dt) {
+int game_update_handler(renderer_ctx ctx, double dt, double t) {
     game_ctx game = (game_ctx) renderer_get_user_context(ctx);
     if (game == NULL) {
         log_error("No game context provided for main update function");
@@ -59,6 +60,27 @@ int game_update_handler(renderer_ctx ctx, double dt) {
     }
     else {
         log_throttle_error(5000, "Failed to get texture!");
+    }
+
+    size_t ms = (size_t) (t * 1000);
+    size_t anim_step = (ms / 150) % 6;
+
+    int anim_ids[] = {25, 26, 49, 50};
+    char texture_id[128] = "";
+
+    renderer_increment_layer(ctx);
+    for (size_t i = 0; i < (sizeof(anim_ids) / sizeof(int)); i++) {
+        snprintf(texture_id, sizeof(texture_id) - 1, "unarmed_walk/animation%d-%lu", anim_ids[i], anim_step);
+    
+        texture player_sprite = asset_manager_get_texture(game->asset_mgr, texture_id);
+        if (player_sprite != NULL) {
+            float x = (i % 2) * 16;
+            float y = (i / 2) * 16;
+            renderer_draw_texture(ctx, player_sprite, 340 + x, 230 + y);
+        }
+        else {
+            log_throttle_error(5000, "Failed to get texture '{s}'!", texture_id);
+        }
     }
 
     if (game->debug_info) {

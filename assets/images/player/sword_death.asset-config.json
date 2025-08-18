@@ -1,0 +1,719 @@
+{
+    "filetype": ".png",
+    "textures": {
+        "animation29-0": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 16,
+            "offset_y": 16
+        },
+        "animation29-1": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 80,
+            "offset_y": 16
+        },
+        "animation29-2": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 144,
+            "offset_y": 16
+        },
+        "animation29-3": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 208,
+            "offset_y": 16
+        },
+        "animation29-4": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 272,
+            "offset_y": 16
+        },
+        "animation29-5": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 336,
+            "offset_y": 16
+        },
+        "animation29-6": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 400,
+            "offset_y": 16
+        },
+        "animation30-0": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 32,
+            "offset_y": 16
+        },
+        "animation30-1": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 96,
+            "offset_y": 16
+        },
+        "animation30-2": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 160,
+            "offset_y": 16
+        },
+        "animation30-3": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 224,
+            "offset_y": 16
+        },
+        "animation30-4": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 288,
+            "offset_y": 16
+        },
+        "animation30-5": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 352,
+            "offset_y": 16
+        },
+        "animation30-6": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 416,
+            "offset_y": 16
+        },
+        "animation56-0": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 0,
+            "offset_y": 32
+        },
+        "animation56-1": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 64,
+            "offset_y": 32
+        },
+        "animation56-2": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 128,
+            "offset_y": 32
+        },
+        "animation56-3": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 192,
+            "offset_y": 32
+        },
+        "animation56-4": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 256,
+            "offset_y": 32
+        },
+        "animation56-5": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 320,
+            "offset_y": 32
+        },
+        "animation56-6": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 384,
+            "offset_y": 32
+        },
+        "animation57-0": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 16,
+            "offset_y": 32
+        },
+        "animation57-1": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 80,
+            "offset_y": 32
+        },
+        "animation57-2": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 144,
+            "offset_y": 32
+        },
+        "animation57-3": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 208,
+            "offset_y": 32
+        },
+        "animation57-4": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 272,
+            "offset_y": 32
+        },
+        "animation57-5": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 336,
+            "offset_y": 32
+        },
+        "animation57-6": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 400,
+            "offset_y": 32
+        },
+        "animation58-0": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 32,
+            "offset_y": 32
+        },
+        "animation58-1": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 96,
+            "offset_y": 32
+        },
+        "animation58-2": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 160,
+            "offset_y": 32
+        },
+        "animation58-3": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 224,
+            "offset_y": 32
+        },
+        "animation58-4": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 288,
+            "offset_y": 32
+        },
+        "animation58-5": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 352,
+            "offset_y": 32
+        },
+        "animation58-6": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 416,
+            "offset_y": 32
+        },
+        "animation141-0": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 16,
+            "offset_y": 80
+        },
+        "animation141-1": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 80,
+            "offset_y": 80
+        },
+        "animation141-2": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 144,
+            "offset_y": 80
+        },
+        "animation141-3": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 208,
+            "offset_y": 80
+        },
+        "animation141-4": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 272,
+            "offset_y": 80
+        },
+        "animation141-5": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 336,
+            "offset_y": 80
+        },
+        "animation141-6": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 400,
+            "offset_y": 80
+        },
+        "animation142-0": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 32,
+            "offset_y": 80
+        },
+        "animation142-1": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 96,
+            "offset_y": 80
+        },
+        "animation142-2": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 160,
+            "offset_y": 80
+        },
+        "animation142-3": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 224,
+            "offset_y": 80
+        },
+        "animation142-4": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 288,
+            "offset_y": 80
+        },
+        "animation142-5": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 352,
+            "offset_y": 80
+        },
+        "animation142-6": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 416,
+            "offset_y": 80
+        },
+        "animation169-0": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 16,
+            "offset_y": 96
+        },
+        "animation169-1": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 80,
+            "offset_y": 96
+        },
+        "animation169-2": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 144,
+            "offset_y": 96
+        },
+        "animation169-3": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 208,
+            "offset_y": 96
+        },
+        "animation169-4": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 272,
+            "offset_y": 96
+        },
+        "animation169-5": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 336,
+            "offset_y": 96
+        },
+        "animation169-6": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 400,
+            "offset_y": 96
+        },
+        "animation170-0": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 32,
+            "offset_y": 96
+        },
+        "animation170-1": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 96,
+            "offset_y": 96
+        },
+        "animation170-2": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 160,
+            "offset_y": 96
+        },
+        "animation170-3": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 224,
+            "offset_y": 96
+        },
+        "animation170-4": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 288,
+            "offset_y": 96
+        },
+        "animation170-5": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 352,
+            "offset_y": 96
+        },
+        "animation170-6": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 416,
+            "offset_y": 96
+        },
+        "animation253-0": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 16,
+            "offset_y": 144
+        },
+        "animation253-1": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 80,
+            "offset_y": 144
+        },
+        "animation253-2": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 144,
+            "offset_y": 144
+        },
+        "animation253-3": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 208,
+            "offset_y": 144
+        },
+        "animation253-4": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 272,
+            "offset_y": 144
+        },
+        "animation253-5": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 336,
+            "offset_y": 144
+        },
+        "animation253-6": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 400,
+            "offset_y": 144
+        },
+        "animation254-0": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 32,
+            "offset_y": 144
+        },
+        "animation254-1": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 96,
+            "offset_y": 144
+        },
+        "animation254-2": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 160,
+            "offset_y": 144
+        },
+        "animation254-3": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 224,
+            "offset_y": 144
+        },
+        "animation254-4": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 288,
+            "offset_y": 144
+        },
+        "animation254-5": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 352,
+            "offset_y": 144
+        },
+        "animation254-6": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 416,
+            "offset_y": 144
+        },
+        "animation281-0": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 16,
+            "offset_y": 160
+        },
+        "animation281-1": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 80,
+            "offset_y": 160
+        },
+        "animation281-2": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 144,
+            "offset_y": 160
+        },
+        "animation281-3": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 208,
+            "offset_y": 160
+        },
+        "animation281-4": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 272,
+            "offset_y": 160
+        },
+        "animation281-5": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 336,
+            "offset_y": 160
+        },
+        "animation281-6": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 400,
+            "offset_y": 160
+        },
+        "animation282-0": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 32,
+            "offset_y": 160
+        },
+        "animation282-1": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 96,
+            "offset_y": 160
+        },
+        "animation282-2": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 160,
+            "offset_y": 160
+        },
+        "animation282-3": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 224,
+            "offset_y": 160
+        },
+        "animation282-4": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 288,
+            "offset_y": 160
+        },
+        "animation282-5": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 352,
+            "offset_y": 160
+        },
+        "animation282-6": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 416,
+            "offset_y": 160
+        },
+        "animation365-0": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 16,
+            "offset_y": 208
+        },
+        "animation365-1": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 80,
+            "offset_y": 208
+        },
+        "animation365-2": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 144,
+            "offset_y": 208
+        },
+        "animation365-3": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 208,
+            "offset_y": 208
+        },
+        "animation365-4": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 272,
+            "offset_y": 208
+        },
+        "animation365-5": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 336,
+            "offset_y": 208
+        },
+        "animation365-6": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 400,
+            "offset_y": 208
+        },
+        "animation366-0": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 32,
+            "offset_y": 208
+        },
+        "animation366-1": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 96,
+            "offset_y": 208
+        },
+        "animation366-2": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 160,
+            "offset_y": 208
+        },
+        "animation366-3": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 224,
+            "offset_y": 208
+        },
+        "animation366-4": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 288,
+            "offset_y": 208
+        },
+        "animation366-5": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 352,
+            "offset_y": 208
+        },
+        "animation366-6": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 416,
+            "offset_y": 208
+        },
+        "animation393-0": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 16,
+            "offset_y": 224
+        },
+        "animation393-1": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 80,
+            "offset_y": 224
+        },
+        "animation393-2": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 144,
+            "offset_y": 224
+        },
+        "animation393-3": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 208,
+            "offset_y": 224
+        },
+        "animation393-4": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 272,
+            "offset_y": 224
+        },
+        "animation393-5": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 336,
+            "offset_y": 224
+        },
+        "animation393-6": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 400,
+            "offset_y": 224
+        },
+        "animation394-0": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 32,
+            "offset_y": 224
+        },
+        "animation394-1": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 96,
+            "offset_y": 224
+        },
+        "animation394-2": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 160,
+            "offset_y": 224
+        },
+        "animation394-3": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 224,
+            "offset_y": 224
+        },
+        "animation394-4": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 288,
+            "offset_y": 224
+        },
+        "animation394-5": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 352,
+            "offset_y": 224
+        },
+        "animation394-6": {
+            "width": 16,
+            "height": 16,
+            "offset_x": 416,
+            "offset_y": 224
+        }
+    }
+}

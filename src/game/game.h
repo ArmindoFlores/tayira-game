@@ -7,7 +7,7 @@ typedef struct game_ctx_s* game_ctx;
 
 game_ctx game_context_init();
 
-int game_update_handler(renderer_ctx, double);
+int game_update_handler(renderer_ctx, double, double);
 int game_key_handler(renderer_ctx, int, int, int, int);
 int game_mouse_button_handler(renderer_ctx, int, int, int);
 int game_mouse_move_handler(renderer_ctx, double, double);

@@ -458,18 +458,18 @@ void renderer_run(
 
     double last_frame_time = glfwGetTime();
     while (!glfwWindowShouldClose(ctx->window) && !ctx->should_close) {
+        double current_time = glfwGetTime();
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        double current_time = glfwGetTime();
         renderer_begin_batch(ctx);
-        if (update_cb(ctx, current_time - last_frame_time) != 0) {
+        if (update_cb(ctx, current_time - last_frame_time, current_time) != 0) {
             log_info("Exiting main loop");
             break;
         }
         renderer_end_batch(ctx);
-        last_frame_time = current_time;
-
+        
         glfwSwapBuffers(ctx->window);
+        last_frame_time = current_time;
         glfwPollEvents();
     }
 }
