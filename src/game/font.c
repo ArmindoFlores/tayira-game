@@ -136,8 +136,8 @@ font font_create(asset_manager_ctx ctx, const char *asset_id, float spacing, flo
     return f;
 }
 
-int font_render(font f, renderer_ctx renderer, const char* string, int x, int y, color_rgba color) {
-    int set_tint = color.r != 1.0f || color.g != 1.0f || color.b != 1.0f || color.a != 1.0f;
+int font_render(font f, renderer_ctx renderer, const char* string, int x, int y, color_rgb color) {
+    int set_tint = color.r != 1.0f || color.g != 1.0f || color.b != 1.0f;
     if (set_tint) {
         renderer_set_tint(renderer, color);
     }

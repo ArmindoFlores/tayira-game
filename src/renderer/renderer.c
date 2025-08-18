@@ -25,6 +25,7 @@ typedef struct gl_instance_data {
     float x, y;
     float w, h;
     float u0, v0, u1, v1;
+    float z;
 } gl_instance_data;
 
 struct renderer_ctx_s {
@@ -35,6 +36,9 @@ struct renderer_ctx_s {
     GLuint current_texture;
     gl_instance_data *instances_cpu;
     GLsizei instance_count;
+
+    unsigned int layer;
+    float layer_step;
 
     // cached uniforms
     GLint uScreenLoc;
@@ -177,9 +181,6 @@ static void init_texture_buffers(renderer_ctx ctx) {
     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4*sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
 
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4*sizeof(float), (void*)(2*sizeof(float)));
-    glEnableVertexAttribArray(1);
-
     glGenBuffers(1, &ctx->t_buf.ebo);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ctx->t_buf.ebo);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(QUAD_IDX), QUAD_IDX, GL_STATIC_DRAW);
@@ -188,11 +189,15 @@ static void init_texture_buffers(renderer_ctx ctx) {
     glBindBuffer(GL_ARRAY_BUFFER, ctx->t_buf.instance_vbo);
     glBufferData(GL_ARRAY_BUFFER, MAX_DRAW_INSTANCES * sizeof(gl_instance_data), NULL, GL_STREAM_DRAW);
 
-    glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, sizeof(gl_instance_data), (void*)0);
+    glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, sizeof(gl_instance_data), (void*) offsetof(gl_instance_data, x));
+    glEnableVertexAttribArray(1);
+    glVertexAttribDivisor(1, 1);
+
+    glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, sizeof(gl_instance_data), (void*) offsetof(gl_instance_data, u0));
     glEnableVertexAttribArray(2);
     glVertexAttribDivisor(2, 1);
 
-    glVertexAttribPointer(3, 4, GL_FLOAT, GL_FALSE, sizeof(gl_instance_data), (void*)(sizeof(float)*4));
+    glVertexAttribPointer(3, 1, GL_FLOAT, GL_FALSE, sizeof(gl_instance_data), (void*) offsetof(gl_instance_data, z));
     glEnableVertexAttribArray(3);
     glVertexAttribDivisor(3, 1);
 
@@ -224,6 +229,8 @@ renderer_ctx renderer_init(int width, int height, const char *title) {
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     
+    ctx->layer = 1;
+    ctx->layer_step = 5e-4;
     ctx->user_context = NULL;
     ctx->should_close = 0;
     ctx->instance_count = 0;
@@ -265,14 +272,14 @@ renderer_ctx renderer_init(int width, int height, const char *title) {
 
     init_texture_buffers(ctx);
 
-    GLuint vs = compile_shader(GL_VERTEX_SHADER, "texture/vertex.glsl");
+    GLuint vs = compile_shader(GL_VERTEX_SHADER, "texture/vertex.vs");
     if (vs == 0) {
         free(ctx->instances_cpu);
         free(ctx);
         return NULL;
     }
 
-    GLuint fs = compile_shader(GL_FRAGMENT_SHADER, "texture/fragment.glsl");
+    GLuint fs = compile_shader(GL_FRAGMENT_SHADER, "texture/fragment.fs");
     if (fs == 0) {
         free(ctx->instances_cpu);
         free(ctx);
@@ -304,8 +311,10 @@ renderer_ctx renderer_init(int width, int height, const char *title) {
 
     glDeleteShader(vs);
     glDeleteShader(fs);
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_LESS);
+    glDepthMask(GL_TRUE);
 
     return ctx;
 }
@@ -318,8 +327,32 @@ void *renderer_get_user_context(renderer_ctx ctx) {
     return ctx->user_context;
 }
 
-void renderer_fill(renderer_ctx, color_rgba color) {
-    glClearColor(color.r, color.g, color.b, color.a);
+unsigned int renderer_set_layer(renderer_ctx ctx, unsigned int layer) {
+    return ctx->layer = layer;
+}
+
+unsigned int renderer_get_layer(renderer_ctx ctx) {
+    return ctx->layer;
+}
+
+unsigned int renderer_increment_layer(renderer_ctx ctx) {
+    if ((ctx->layer+1) * ctx->layer_step <= 1) {
+        return ++ctx->layer;
+    }
+    log_throttle_warning(5000, "Tried to increment render layer beyond maximum ({u})", (unsigned int) (1.0 / ctx->layer_step));
+    return ctx->layer;
+}
+
+unsigned int renderer_decrement_layer(renderer_ctx ctx) {
+    if (ctx->layer > 1) {
+        return --ctx->layer;
+    }
+    log_throttle_warning(5000, "Tried to decrement render layer below 1");
+    return ctx->layer;
+}
+
+void renderer_fill(renderer_ctx, color_rgb color) {
+    glClearColor(color.r, color.g, color.b, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
 }
 
@@ -356,6 +389,7 @@ void renderer_draw_texture(renderer_ctx ctx, texture t, float x, float y) {
 
     gl_instance_data *inst = &ctx->instances_cpu[ctx->instance_count++];
     inst->x = x; inst->y = y; inst->w = w; inst->h = h;
+    inst->z = 1.0 - ctx->layer * ctx->layer_step;
     
     float vertices[16];
     texture_get_vertices(t, vertices);
@@ -364,9 +398,9 @@ void renderer_draw_texture(renderer_ctx ctx, texture t, float x, float y) {
     ctx->drawn_instances++;
 }
 
-void renderer_set_tint(renderer_ctx ctx, color_rgba color) {
+void renderer_set_tint(renderer_ctx ctx, color_rgb color) {
     renderer_flush_batch(ctx);
-    glUniform4f(ctx->uColorLoc, color.r, color.g, color.b, color.a);
+    glUniform4f(ctx->uColorLoc, color.r, color.g, color.b, 1.0f);
 }
 
 void renderer_clear_tint(renderer_ctx ctx) {
@@ -388,6 +422,7 @@ static void renderer_begin_batch(renderer_ctx ctx) {
     glUniform4f(ctx->uColorLoc, 1.0f, 1.0f, 1.0f, 1.0f);
     ctx->draw_calls = 0;
     ctx->drawn_instances = 0;
+    ctx->layer = 1;
 }
 
 static void renderer_end_batch(renderer_ctx ctx) {
@@ -423,7 +458,7 @@ void renderer_run(
 
     double last_frame_time = glfwGetTime();
     while (!glfwWindowShouldClose(ctx->window) && !ctx->should_close) {
-        glClear(GL_COLOR_BUFFER_BIT);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         double current_time = glfwGetTime();
         renderer_begin_batch(ctx);

@@ -4,9 +4,9 @@
 #include "logger/logger.h"
 #include "assets.h"
 
-typedef struct color_rgba {
-    float r, g, b, a;
-} color_rgba;
+typedef struct color_rgb {
+    float r, g, b;
+} color_rgb;
 
 typedef struct renderer_statistics {
     size_t draw_calls;
@@ -22,7 +22,11 @@ typedef int (*update_callback) (renderer_ctx, double dt);
 renderer_ctx renderer_init(int width, int height, const char *title);
 void renderer_register_user_context(renderer_ctx, void *user_context);
 void *renderer_get_user_context(renderer_ctx);
-void renderer_fill(renderer_ctx, color_rgba);
+unsigned int renderer_set_layer(renderer_ctx, unsigned int layer);
+unsigned int renderer_get_layer(renderer_ctx);
+unsigned int renderer_increment_layer(renderer_ctx);
+unsigned int renderer_decrement_layer(renderer_ctx);
+void renderer_fill(renderer_ctx, color_rgb);
 void renderer_run(
     renderer_ctx, 
     update_callback update_cb, 
@@ -32,7 +36,7 @@ void renderer_run(
     mouse_move_callback scroll_cb
 );
 void renderer_draw_texture(renderer_ctx, texture, float x, float y);
-void renderer_set_tint(renderer_ctx, color_rgba);
+void renderer_set_tint(renderer_ctx, color_rgb);
 void renderer_clear_tint(renderer_ctx);
 renderer_statistics renderer_get_stats(renderer_ctx);
 void renderer_cleanup(renderer_ctx);

@@ -52,7 +52,6 @@ int game_update_handler(renderer_ctx ctx, double dt) {
     if (cobble != NULL) {
         for (int x = 0; x < 45; x++) {
             for (int y = 0; y < 30; y++) {
-                if (x < 13 && y < 4 && game->debug_info) continue;
                 renderer_draw_texture(ctx, cobble, x * 16.0, y * 16.0);
             }
         }
@@ -63,6 +62,7 @@ int game_update_handler(renderer_ctx ctx, double dt) {
     }
 
     if (game->debug_info) {
+        renderer_decrement_layer(ctx);
         char buffer[128];
         renderer_statistics stats = renderer_get_stats(ctx); 
         int chars_written = snprintf(
@@ -81,7 +81,7 @@ int game_update_handler(renderer_ctx ctx, double dt) {
                 buffer,
                 5, 
                 2,
-                (color_rgba) { .r = 0.95f, .g = 0.95f, .b = 0.95f, .a = 1.0f }
+                (color_rgb) { .r = 0.95f, .g = 0.95f, .b = 0.95f }
             );
         }
         else {

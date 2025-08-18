@@ -25,9 +25,9 @@ char *utils_read_whole_file(const char* filename) {
         return NULL;
     }
 
-    fread(contents, file_size, 1, fp);
+    size_t bytes_read = fread(contents, sizeof(char), file_size, fp);
     fclose(fp);
 
-    contents[file_size] = '\0';
+    contents[bytes_read] = '\0';
     return contents;
 }
