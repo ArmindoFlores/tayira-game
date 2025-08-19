@@ -11,7 +11,13 @@ struct game_ctx_s {
     int level;
     asset_manager_ctx asset_mgr;
     font base_font_16;
-    animation player_animation;
+
+    int player_moving;
+    direction player_direction;
+    position_vec player_position;
+
+    animation anim_walk_down, anim_walk_up, anim_walk_right, anim_walk_left;
+    animation anim_idle_down, anim_idle_up, anim_idle_right, anim_idle_left;
 };
 
 game_ctx game_context_init() {
@@ -21,6 +27,9 @@ game_ctx game_context_init() {
         return game;
     }
 
+    game->player_moving = 0;
+    game->player_direction = DIRECTION_RIGHT;
+    game->player_position = (position_vec) { .x = 230, .y = 150 };
     game->debug_info = 0;
     game->asset_mgr = asset_manager_init();
     if (game->asset_mgr == NULL) {
@@ -34,8 +43,24 @@ game_ctx game_context_init() {
         return NULL;
     }
 
-    game->player_animation = animation_create(game->asset_mgr, "unarmed_walk", "front-facing");
-    if (game->player_animation == NULL) {
+    game->anim_walk_down = animation_create(game->asset_mgr, "unarmed_walk", "down");
+    game->anim_walk_up = animation_create(game->asset_mgr, "unarmed_walk", "up");
+    game->anim_walk_right = animation_create(game->asset_mgr, "unarmed_walk", "right");
+    game->anim_walk_left = animation_create(game->asset_mgr, "unarmed_walk", "left");
+    game->anim_idle_down = animation_create(game->asset_mgr, "unarmed_idle", "down");
+    game->anim_idle_up = animation_create(game->asset_mgr, "unarmed_idle", "up");
+    game->anim_idle_right = animation_create(game->asset_mgr, "unarmed_idle", "right");
+    game->anim_idle_left = animation_create(game->asset_mgr, "unarmed_idle", "left");
+    if (
+        game->anim_walk_down == NULL || 
+        game->anim_walk_up == NULL || 
+        game->anim_walk_left == NULL || 
+        game->anim_walk_right == NULL ||
+        game->anim_idle_down == NULL ||
+        game->anim_idle_up == NULL ||
+        game->anim_idle_right == NULL ||
+        game->anim_idle_left == NULL
+    ) {
         game_context_cleanup(game);
         return NULL;
     }
@@ -44,7 +69,14 @@ game_ctx game_context_init() {
     asset_manager_texture_preload(game->asset_mgr, "tiles/cobblestone_1");
     
     // Pre-load animations
-    animation_load(game->player_animation);
+    animation_load(game->anim_walk_down);
+    animation_load(game->anim_walk_up);
+    animation_load(game->anim_walk_right);
+    animation_load(game->anim_walk_left);
+    animation_load(game->anim_idle_down);
+    animation_load(game->anim_idle_up);
+    animation_load(game->anim_idle_right);
+    animation_load(game->anim_idle_left);
     
     // Pre-load font textures
     font_load(game->base_font_16);
@@ -73,7 +105,40 @@ int game_update_handler(renderer_ctx ctx, double dt, double t) {
     }
 
     renderer_increment_layer(ctx);
-    animation_render(game->player_animation, ctx, 340, 240, t);
+    animation anim_to_draw = NULL;
+    if (game->player_moving) {
+        switch (game->player_direction) {
+            case DIRECTION_DOWN:
+                anim_to_draw = game->anim_walk_down;
+                break;
+            case DIRECTION_UP:
+                anim_to_draw = game->anim_walk_up;
+                break;
+            case DIRECTION_RIGHT:
+                anim_to_draw = game->anim_walk_right;
+                break;
+            case DIRECTION_LEFT:
+                anim_to_draw = game->anim_walk_left;
+                break;
+        }
+    }
+    else {
+        switch (game->player_direction) {
+            case DIRECTION_DOWN:
+                anim_to_draw = game->anim_idle_down;
+                break;
+            case DIRECTION_UP:
+                anim_to_draw = game->anim_idle_up;
+                break;
+            case DIRECTION_RIGHT:
+                anim_to_draw = game->anim_idle_right;
+                break;
+            case DIRECTION_LEFT:
+                anim_to_draw = game->anim_idle_left;
+                break;
+        } 
+    }
+    animation_render(anim_to_draw, ctx, game->player_position.x, game->player_position.y, t);
 
     if (game->debug_info) {
         renderer_increment_layer(ctx);
@@ -113,9 +178,40 @@ int game_key_handler(renderer_ctx ctx, int key, int, int action, int mods) {
         return 0;
     }
 
+    log_info("key={d} action={d}", key, action);
+
     if (key == GLFW_KEY_F3 && action == 0 && mods == 0) {
         game->debug_info = game->debug_info ? 0 : 1;
     }
+    else if (game->player_moving == 0 && key == GLFW_KEY_W && action == 1 && mods == 0) {
+        game->player_direction = DIRECTION_UP;
+        game->player_moving = 1;
+    }
+    else if (game->player_moving == 0 && key == GLFW_KEY_A && action == 1 && mods == 0) {
+        game->player_direction = DIRECTION_LEFT;
+        game->player_moving = 1;
+    }
+    else if (game->player_moving == 0 && key == GLFW_KEY_S && action == 1 && mods == 0) {
+        game->player_direction = DIRECTION_DOWN;
+        game->player_moving = 1;
+    }
+    else if (game->player_moving == 0 && key == GLFW_KEY_D && action == 1 && mods == 0) {
+        game->player_direction = DIRECTION_RIGHT;
+        game->player_moving = 1;
+    }
+    else if (game->player_direction == DIRECTION_UP && key == GLFW_KEY_W && action == 0 && mods == 0) {
+        game->player_moving = 0;
+    }
+    else if (game->player_direction == DIRECTION_LEFT && key == GLFW_KEY_A && action == 0 && mods == 0) {
+        game->player_moving = 0;
+    }
+    else if (game->player_direction == DIRECTION_DOWN && key == GLFW_KEY_S && action == 0 && mods == 0) {
+        game->player_moving = 0;
+    }
+    else if (game->player_direction == DIRECTION_RIGHT && key == GLFW_KEY_D && action == 0 && mods == 0) {
+        game->player_moving = 0;
+    }
+
     return 0;
 }
 
@@ -133,14 +229,15 @@ int game_scroll_handler(renderer_ctx, double, double) {
 
 void game_context_cleanup(game_ctx ctx) {
     if (ctx == NULL) return;
-    if (ctx->base_font_16 != NULL) {
-        font_destroy(ctx->base_font_16);
-    }
-    if (ctx->asset_mgr != NULL) {
-        asset_manager_cleanup(ctx->asset_mgr);
-    }
-    if (ctx->player_animation != NULL) {
-        animation_destroy(ctx->player_animation);
-    }
+    if (ctx->base_font_16 != NULL) font_destroy(ctx->base_font_16);
+    if (ctx->asset_mgr != NULL) asset_manager_cleanup(ctx->asset_mgr);
+    if (ctx->anim_walk_down != NULL) animation_destroy(ctx->anim_walk_down);
+    if (ctx->anim_walk_up != NULL) animation_destroy(ctx->anim_walk_up);
+    if (ctx->anim_walk_left != NULL) animation_destroy(ctx->anim_walk_left);
+    if (ctx->anim_walk_right != NULL) animation_destroy(ctx->anim_walk_right);
+    if (ctx->anim_idle_down != NULL) animation_destroy(ctx->anim_idle_down);
+    if (ctx->anim_idle_up != NULL) animation_destroy(ctx->anim_idle_up);
+    if (ctx->anim_idle_left != NULL) animation_destroy(ctx->anim_idle_left);
+    if (ctx->anim_idle_right != NULL) animation_destroy(ctx->anim_idle_right);
     free(ctx);
 }

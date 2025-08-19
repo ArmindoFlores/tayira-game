@@ -6,6 +6,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 
 static const char BASE_SHADER_PATH[] = "assets/shaders/";
 static const int MAX_DRAW_INSTANCES = 16384;
@@ -44,6 +45,18 @@ struct renderer_ctx_s {
     GLint uScreenLoc;
     GLint uPanLoc; 
     GLint uColorLoc;
+
+    int logical_w, logical_h;
+
+    // Offscreen framebuffer
+    GLuint fbo;
+    GLuint fbo_color;
+    GLuint fbo_depth;
+
+    // Present pass pipeline
+    GLuint present_shader;
+    GLuint present_vao;
+    GLuint present_vbo;
 
     int screen_w, screen_h;
 
@@ -204,6 +217,96 @@ static void init_texture_buffers(renderer_ctx ctx) {
     glBindVertexArray(0);
 }
 
+static int renderer_create_offscreen(renderer_ctx ctx, int logical_w, int logical_h) {
+    if (logical_w <= 0 || logical_h <= 0) return 1;
+    ctx->logical_w = logical_w;
+    ctx->logical_h = logical_h;
+
+    glGenFramebuffers(1, &ctx->fbo);
+    glBindFramebuffer(GL_FRAMEBUFFER, ctx->fbo);
+
+    glGenTextures(1, &ctx->fbo_color);
+    glBindTexture(GL_TEXTURE_2D, ctx->fbo_color);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, logical_w, logical_h, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, ctx->fbo_color, 0);
+
+    glGenRenderbuffers(1, &ctx->fbo_depth);
+    glBindRenderbuffer(GL_RENDERBUFFER, ctx->fbo_depth);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, logical_w, logical_h);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, ctx->fbo_depth);
+
+    GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    return status == GL_FRAMEBUFFER_COMPLETE ? 0 : 1;
+}
+
+static int renderer_create_present_pipeline(renderer_ctx ctx) {
+    GLuint vs = compile_shader(GL_VERTEX_SHADER, "present/vertex.vs");
+    if (vs == 0) {
+        return 1;
+    }
+    GLuint fs = compile_shader(GL_FRAGMENT_SHADER, "present/fragment.fs");
+    if (fs == 0) { 
+        glDeleteShader(vs); 
+        return 1; 
+    }
+
+    ctx->present_shader = glCreateProgram();
+    glAttachShader(ctx->present_shader, vs);
+    glAttachShader(ctx->present_shader, fs);
+    glLinkProgram(ctx->present_shader);
+    glDeleteShader(vs);
+    glDeleteShader(fs);
+
+    GLint linked = 0;
+    glGetProgramiv(ctx->present_shader, GL_LINK_STATUS, &linked);
+    if (!linked) {
+        log_error("Failed to link present shader");
+        glDeleteProgram(ctx->present_shader);
+        ctx->present_shader = 0;
+        return 1;
+    }
+
+    const float fs_triangle[] = {
+        -1.0f, -1.0f,  0.0f, 0.0f,
+         3.0f, -1.0f,  2.0f, 0.0f,
+        -1.0f,  3.0f,  0.0f, 2.0f
+    };
+
+    glGenVertexArrays(1, &ctx->present_vao);
+    glBindVertexArray(ctx->present_vao);
+
+    glGenBuffers(1, &ctx->present_vbo);
+    glBindBuffer(GL_ARRAY_BUFFER, ctx->present_vbo);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(fs_triangle), fs_triangle, GL_STATIC_DRAW);
+
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4*sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4*sizeof(float), (void*)(2*sizeof(float)));
+    glEnableVertexAttribArray(1);
+
+    glBindVertexArray(0);
+    return 0;
+}
+
+static void renderer_destroy_present_pipeline(renderer_ctx ctx) {
+    if (!ctx) return;
+    if (ctx->present_vbo) { glDeleteBuffers(1, &ctx->present_vbo); ctx->present_vbo = 0; }
+    if (ctx->present_vao) { glDeleteVertexArrays(1, &ctx->present_vao); ctx->present_vao = 0; }
+    if (ctx->present_shader) { glDeleteProgram(ctx->present_shader); ctx->present_shader = 0; }
+}
+
+static void renderer_destroy_offscreen(renderer_ctx ctx) {
+    if (!ctx) return;
+    if (ctx->fbo_depth) { glDeleteRenderbuffers(1, &ctx->fbo_depth); ctx->fbo_depth = 0; }
+    if (ctx->fbo_color) { glDeleteTextures(1, &ctx->fbo_color); ctx->fbo_color = 0; }
+    if (ctx->fbo)       { glDeleteFramebuffers(1, &ctx->fbo); ctx->fbo = 0; }
+}
+
 static GLint get_uniform_location(GLuint shader_program, const char* name) {
     GLint result = glGetUniformLocation(shader_program, name);
     if (result == -1) {
@@ -229,6 +332,14 @@ renderer_ctx renderer_init(int width, int height, const char *title) {
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     
+    ctx->logical_w = 480;
+    ctx->logical_h = 320;
+    ctx->fbo = 0;
+    ctx->fbo_color = 0;
+    ctx->fbo_depth = 0;
+    ctx->present_shader = 0;
+    ctx->present_vao = 0;
+    ctx->present_vbo = 0;
     ctx->layer = 1;
     ctx->layer_step = 5e-4;
     ctx->user_context = NULL;
@@ -315,6 +426,17 @@ renderer_ctx renderer_init(int width, int height, const char *title) {
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LESS);
     glDepthMask(GL_TRUE);
+
+    if (renderer_create_offscreen(ctx, ctx->logical_w, ctx->logical_h) != 0) {
+        log_error("Failed to create offscreen framebuffer");
+        renderer_cleanup(ctx);
+        return NULL;
+    }
+    if (renderer_create_present_pipeline(ctx) != 0) {
+        log_error("Failed to create present pipeline");
+        renderer_cleanup(ctx);
+        return NULL;
+    }
 
     return ctx;
 }
@@ -409,17 +531,20 @@ void renderer_clear_tint(renderer_ctx ctx) {
 }
 
 static void renderer_begin_batch(renderer_ctx ctx) {
+    glBindFramebuffer(GL_FRAMEBUFFER, ctx->fbo);
+    glViewport(0, 0, ctx->logical_w, ctx->logical_h);
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
     glUseProgram(ctx->shader_program);
     glBindVertexArray(ctx->t_buf.vao);
 
-    glfwGetFramebufferSize(ctx->window, &ctx->screen_w, &ctx->screen_h);
-    glViewport(0, 0, ctx->screen_w, ctx->screen_h);
-
-    glUniform2f(ctx->uScreenLoc, (float)ctx->screen_w, (float)ctx->screen_h);
+    glUniform2f(ctx->uScreenLoc, (float)ctx->logical_w, (float)ctx->logical_h);
     if (ctx->uPanLoc >= 0) {
         glUniform2f(ctx->uPanLoc, ctx->pan_x, ctx->pan_y);
     }
     glUniform4f(ctx->uColorLoc, 1.0f, 1.0f, 1.0f, 1.0f);
+
     ctx->draw_calls = 0;
     ctx->drawn_instances = 0;
     ctx->layer = 1;
@@ -427,7 +552,38 @@ static void renderer_begin_batch(renderer_ctx ctx) {
 
 static void renderer_end_batch(renderer_ctx ctx) {
     renderer_flush_batch(ctx);
+
     glBindVertexArray(0);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    glfwGetFramebufferSize(ctx->window, &ctx->screen_w, &ctx->screen_h);
+    const float sx = (float)ctx->screen_w  / (float)ctx->logical_w;
+    const float sy = (float)ctx->screen_h / (float)ctx->logical_h;
+    int scale = (int)floorf(fminf(sx, sy));
+    if (scale < 1) scale = 1;
+
+    const int vp_w = ctx->logical_w * scale;
+    const int vp_h = ctx->logical_h * scale;
+    const int vp_x = (ctx->screen_w  - vp_w) / 2;
+    const int vp_y = (ctx->screen_h - vp_h) / 2;
+
+    glViewport(0, 0, ctx->screen_w, ctx->screen_h);
+    glDisable(GL_DEPTH_TEST);
+    glClearColor(0.f, 0.f, 0.f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    glViewport(vp_x, vp_y, vp_w, vp_h);
+    glUseProgram(ctx->present_shader);
+    glBindVertexArray(ctx->present_vao);
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, ctx->fbo_color);
+
+    glDrawArrays(GL_TRIANGLES, 0, 3);
+
+    glBindVertexArray(0);
+    glEnable(GL_DEPTH_TEST);
+
     ctx->last_draw_calls = ctx->draw_calls;
     ctx->last_drawn_instances = ctx->drawn_instances;
 }
@@ -459,7 +615,6 @@ void renderer_run(
     double last_frame_time = glfwGetTime();
     while (!glfwWindowShouldClose(ctx->window) && !ctx->should_close) {
         double current_time = glfwGetTime();
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         renderer_begin_batch(ctx);
         if (update_cb(ctx, current_time - last_frame_time, current_time) != 0) {
@@ -485,6 +640,8 @@ void renderer_cleanup(renderer_ctx ctx) {
     glDeleteBuffers(1, &ctx->t_buf.quad_vbo);
     glDeleteBuffers(1, &ctx->t_buf.ebo);
     glDeleteVertexArrays(1, &ctx->t_buf.vao);
+    renderer_destroy_present_pipeline(ctx);
+    renderer_destroy_offscreen(ctx);
     glfwDestroyWindow(ctx->window);
     glfwTerminate();
     free(ctx);

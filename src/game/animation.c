@@ -41,7 +41,6 @@ static char *get_animation_path(const char *partial_path) {
 
 static size_t get_animation_texture_id_length(const char *asset_id, const char *texture_prefix, size_t step) {
     size_t result = strlen(asset_id) + strlen(texture_prefix) + digit_length(step) + 2;
-    log_debug("get_animation_texture_id_length({s}, {s}, {lu}) = {lu}", asset_id, texture_prefix, step, result);
     return result;
 }
 
@@ -255,7 +254,6 @@ iteration_result render_animation_part(const void *element, void *_args) {
     int x = args->x + a_info->offset_x * args->anim->texture_width;
     int y = args->y + a_info->offset_y * args->anim->texture_height;
     renderer_draw_texture(args->ctx, anim_texture, (float) x, (float) y);
-    log_debug("Rendering animation '{s}/{s}-{lu}' at ({d}, {d})", args->anim->base_asset_id, a_info->prefix, args->step, x, y);
 
     return ITERATION_CONTINUE;
 }

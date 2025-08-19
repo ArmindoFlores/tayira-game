@@ -108,7 +108,7 @@ int main() {
     game_ctx game = NULL;
     renderer_ctx ctx = NULL;
     
-    ctx = renderer_init(720, 480, "Tayira - Echoes of the Crimson Sea");
+    ctx = renderer_init(960, 640, "Tayira - Echoes of the Crimson Sea");
     if (ctx == NULL) {
         goto cleanup;
     }
