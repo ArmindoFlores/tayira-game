@@ -5,6 +5,8 @@
 #include "logger/logger.h"
 #include "GLFW/glfw3.h"
 #include <stdlib.h>
+#include <math.h>
+#include <threads.h>
 
 struct game_ctx_s {
     int debug_info;
@@ -13,23 +15,37 @@ struct game_ctx_s {
     font base_font_16;
 
     int player_moving;
-    direction player_direction;
+    double player_started_moving_at;
+    direction player_direction, held_direction;
     position_vec player_position;
+
+    int start_move_pos, pixels_per_keypress;
 
     animation anim_walk_down, anim_walk_up, anim_walk_right, anim_walk_left;
     animation anim_idle_down, anim_idle_up, anim_idle_right, anim_idle_left;
+
+    mtx_t lock;
 };
 
 game_ctx game_context_init() {
     game_ctx game = (game_ctx) calloc(1, sizeof(struct game_ctx_s));
     if (game == NULL) {
-        log_info("Failed to initialize game");
-        return game;
+        log_error("Failed to initialize game");
+        return NULL;
     }
 
+    if (mtx_init(&game->lock, mtx_plain) != thrd_success) {
+        free(game);
+        log_error("Failed to setup game state mutex");
+        return NULL;
+    }
+
+    game->start_move_pos = 0;
+    game->pixels_per_keypress = 16;
     game->player_moving = 0;
+    game->held_direction = DIRECTION_NONE;
     game->player_direction = DIRECTION_RIGHT;
-    game->player_position = (position_vec) { .x = 230, .y = 150 };
+    game->player_position = (position_vec) { .x = 230.0f, .y = 150.0f };
     game->debug_info = 0;
     game->asset_mgr = asset_manager_init();
     if (game->asset_mgr == NULL) {
@@ -84,13 +100,7 @@ game_ctx game_context_init() {
     return game;
 }
 
-int game_update_handler(renderer_ctx ctx, double dt, double t) {
-    game_ctx game = (game_ctx) renderer_get_user_context(ctx);
-    if (game == NULL) {
-        log_error("No game context provided for main update function");
-        return 1;
-    }
-    
+static void game_render(game_ctx game, renderer_ctx ctx, double, double t) {
     texture cobble = asset_manager_get_texture(game->asset_mgr, "tiles/cobblestone_1");
     if (cobble != NULL) {
         for (int x = 0; x < 45; x++) {
@@ -98,7 +108,6 @@ int game_update_handler(renderer_ctx ctx, double dt, double t) {
                 renderer_draw_texture(ctx, cobble, x * 16.0, y * 16.0);
             }
         }
-    
     }
     else {
         log_throttle_error(5000, "Failed to get texture!");
@@ -120,6 +129,7 @@ int game_update_handler(renderer_ctx ctx, double dt, double t) {
             case DIRECTION_LEFT:
                 anim_to_draw = game->anim_walk_left;
                 break;
+            default: break;
         }
     }
     else {
@@ -136,9 +146,12 @@ int game_update_handler(renderer_ctx ctx, double dt, double t) {
             case DIRECTION_LEFT:
                 anim_to_draw = game->anim_idle_left;
                 break;
+            default: break;
         } 
     }
-    animation_render(anim_to_draw, ctx, game->player_position.x, game->player_position.y, t);
+    if (anim_to_draw != NULL) {
+        animation_render(anim_to_draw, ctx, (int) game->player_position.x, (int) game->player_position.y, t);
+    }
 
     if (game->debug_info) {
         renderer_increment_layer(ctx);
@@ -148,7 +161,7 @@ int game_update_handler(renderer_ctx ctx, double dt, double t) {
             buffer, 
             sizeof(buffer) - 1, 
             "FPS: %d\nDraw calls: %lu\nInstances: %lu", 
-            (int) (1 / dt),
+            (int)(1.0 / (t > 0.0 ? t : 1.0)),
             stats.draw_calls, 
             stats.drawn_instances
         );
@@ -167,6 +180,58 @@ int game_update_handler(renderer_ctx ctx, double dt, double t) {
             log_warning("Failed to write to buffer");
         }
     }
+}
+
+static void game_step(game_ctx game, double dt, double t) {
+    const float speed = 2 * 16.0f;
+
+    int relevant_pos = (int) (game->player_direction == DIRECTION_DOWN || game->player_direction == DIRECTION_UP ? game->player_position.y : game->player_position.x);
+    if (game->player_moving && abs(game->start_move_pos - relevant_pos) >= game->pixels_per_keypress) {
+        game->player_moving = 0;
+        log_debug("Stopped moving after {d}px", abs(game->start_move_pos - relevant_pos));
+    }
+
+    if (game->player_moving == 0 && game->held_direction != DIRECTION_NONE) {
+        game->player_direction = game->held_direction;
+        game->player_moving = 1;
+        game->start_move_pos = (int) (game->player_direction == DIRECTION_DOWN || game->player_direction == DIRECTION_UP ? game->player_position.y : game->player_position.x);
+        log_debug("Started moving again because user was holding down a key");
+    } 
+
+    if (!game->player_moving) return;
+
+    switch (game->player_direction) {
+        case DIRECTION_UP:    game->player_position.y -= speed * (float)dt; break;
+        case DIRECTION_DOWN:  game->player_position.y += speed * (float)dt; break;
+        case DIRECTION_LEFT:  game->player_position.x -= speed * (float)dt; break;
+        case DIRECTION_RIGHT: game->player_position.x += speed * (float)dt; break;
+        default: break;
+    }
+}
+
+int game_update_handler(renderer_ctx ctx, double dt, double t) {
+    game_ctx game = (game_ctx) renderer_get_user_context(ctx);
+    if (game == NULL) {
+        log_error("No game context provided for main update function");
+        return 1;
+    }
+    
+    // Fixed-step accumulator
+    const double FIXED_DT = 1.0 / 60.0;
+    static double accumulator = 0.0;
+
+    // Clamp dt to avoid spiraling after pauses
+    if (dt > 0.25) dt = 0.25;
+
+    accumulator += dt;
+
+    while (accumulator >= FIXED_DT) {
+        game_step(game, FIXED_DT, t);
+        accumulator -= FIXED_DT;
+    }
+    const double alpha = accumulator / FIXED_DT;
+
+    game_render(game, ctx, alpha, t);
 
     return 0;
 }
@@ -177,39 +242,34 @@ int game_key_handler(renderer_ctx ctx, int key, int, int action, int mods) {
         log_throttle_warning(1000, "No game context found");
         return 0;
     }
-
-    log_info("key={d} action={d}", key, action);
+    double current_time = glfwGetTime();
 
     if (key == GLFW_KEY_F3 && action == 0 && mods == 0) {
         game->debug_info = game->debug_info ? 0 : 1;
     }
-    else if (game->player_moving == 0 && key == GLFW_KEY_W && action == 1 && mods == 0) {
-        game->player_direction = DIRECTION_UP;
-        game->player_moving = 1;
+    else if (key == GLFW_KEY_W && action == 1 && mods == 0 && game->held_direction == DIRECTION_NONE) {
+        game->held_direction = DIRECTION_UP;
     }
-    else if (game->player_moving == 0 && key == GLFW_KEY_A && action == 1 && mods == 0) {
-        game->player_direction = DIRECTION_LEFT;
-        game->player_moving = 1;
+    else if (key == GLFW_KEY_A && action == 1 && mods == 0 && game->held_direction == DIRECTION_NONE) {
+        game->held_direction = DIRECTION_LEFT;
     }
-    else if (game->player_moving == 0 && key == GLFW_KEY_S && action == 1 && mods == 0) {
-        game->player_direction = DIRECTION_DOWN;
-        game->player_moving = 1;
+    else if (key == GLFW_KEY_S && action == 1 && mods == 0 && game->held_direction == DIRECTION_NONE) {
+        game->held_direction = DIRECTION_DOWN;
     }
-    else if (game->player_moving == 0 && key == GLFW_KEY_D && action == 1 && mods == 0) {
-        game->player_direction = DIRECTION_RIGHT;
-        game->player_moving = 1;
+    else if (key == GLFW_KEY_D && action == 1 && mods == 0 && game->held_direction == DIRECTION_NONE) {
+        game->held_direction = DIRECTION_RIGHT;
     }
-    else if (game->player_direction == DIRECTION_UP && key == GLFW_KEY_W && action == 0 && mods == 0) {
-        game->player_moving = 0;
+    else if (key == GLFW_KEY_W && action == 0 && game->held_direction == DIRECTION_UP) {
+        game->held_direction = DIRECTION_NONE;
     }
-    else if (game->player_direction == DIRECTION_LEFT && key == GLFW_KEY_A && action == 0 && mods == 0) {
-        game->player_moving = 0;
+    else if (key == GLFW_KEY_A && action == 0 && game->held_direction == DIRECTION_LEFT) {
+        game->held_direction = DIRECTION_NONE;
     }
-    else if (game->player_direction == DIRECTION_DOWN && key == GLFW_KEY_S && action == 0 && mods == 0) {
-        game->player_moving = 0;
+    else if (key == GLFW_KEY_S && action == 0 && game->held_direction == DIRECTION_DOWN) {
+        game->held_direction = DIRECTION_NONE;
     }
-    else if (game->player_direction == DIRECTION_RIGHT && key == GLFW_KEY_D && action == 0 && mods == 0) {
-        game->player_moving = 0;
+    else if (key == GLFW_KEY_D && action == 0 && game->held_direction == DIRECTION_RIGHT) {
+        game->held_direction = DIRECTION_NONE;
     }
 
     return 0;
@@ -239,5 +299,6 @@ void game_context_cleanup(game_ctx ctx) {
     if (ctx->anim_idle_up != NULL) animation_destroy(ctx->anim_idle_up);
     if (ctx->anim_idle_left != NULL) animation_destroy(ctx->anim_idle_left);
     if (ctx->anim_idle_right != NULL) animation_destroy(ctx->anim_idle_right);
+    mtx_destroy(&ctx->lock);
     free(ctx);
 }
