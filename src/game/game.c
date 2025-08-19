@@ -242,31 +242,34 @@ int game_key_handler(renderer_ctx ctx, int key, int, int action, int mods) {
     }
     double current_time = glfwGetTime();
 
-    if (key == GLFW_KEY_F3 && action == 0 && mods == 0) {
+    if (key == GLFW_KEY_F3 && action == GLFW_RELEASE && mods == 0) {
         game->debug_info = game->debug_info ? 0 : 1;
     }
-    else if (key == GLFW_KEY_W && action == 1 && mods == 0 && game->held_direction == DIRECTION_NONE) {
+    else if (key == GLFW_KEY_F11 && action == GLFW_PRESS && mods == 0) {
+        renderer_toggle_fullscreen(ctx);
+    }
+    else if (key == GLFW_KEY_W && action == GLFW_PRESS && mods == 0 && game->held_direction == DIRECTION_NONE) {
         game->held_direction = DIRECTION_UP;
     }
-    else if (key == GLFW_KEY_A && action == 1 && mods == 0 && game->held_direction == DIRECTION_NONE) {
+    else if (key == GLFW_KEY_A && action == GLFW_PRESS && mods == 0 && game->held_direction == DIRECTION_NONE) {
         game->held_direction = DIRECTION_LEFT;
     }
-    else if (key == GLFW_KEY_S && action == 1 && mods == 0 && game->held_direction == DIRECTION_NONE) {
+    else if (key == GLFW_KEY_S && action == GLFW_PRESS && mods == 0 && game->held_direction == DIRECTION_NONE) {
         game->held_direction = DIRECTION_DOWN;
     }
-    else if (key == GLFW_KEY_D && action == 1 && mods == 0 && game->held_direction == DIRECTION_NONE) {
+    else if (key == GLFW_KEY_D && action == GLFW_PRESS && mods == 0 && game->held_direction == DIRECTION_NONE) {
         game->held_direction = DIRECTION_RIGHT;
     }
-    else if (key == GLFW_KEY_W && action == 0 && game->held_direction == DIRECTION_UP) {
+    else if (key == GLFW_KEY_W && action == GLFW_RELEASE && game->held_direction == DIRECTION_UP) {
         game->held_direction = DIRECTION_NONE;
     }
-    else if (key == GLFW_KEY_A && action == 0 && game->held_direction == DIRECTION_LEFT) {
+    else if (key == GLFW_KEY_A && action == GLFW_RELEASE && game->held_direction == DIRECTION_LEFT) {
         game->held_direction = DIRECTION_NONE;
     }
-    else if (key == GLFW_KEY_S && action == 0 && game->held_direction == DIRECTION_DOWN) {
+    else if (key == GLFW_KEY_S && action == GLFW_RELEASE && game->held_direction == DIRECTION_DOWN) {
         game->held_direction = DIRECTION_NONE;
     }
-    else if (key == GLFW_KEY_D && action == 0 && game->held_direction == DIRECTION_RIGHT) {
+    else if (key == GLFW_KEY_D && action == GLFW_RELEASE && game->held_direction == DIRECTION_RIGHT) {
         game->held_direction = DIRECTION_NONE;
     }
 

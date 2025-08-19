@@ -58,7 +58,10 @@ struct renderer_ctx_s {
     GLuint present_vao;
     GLuint present_vbo;
 
+    int is_fullscreen;
     int screen_w, screen_h;
+    int windowed_x, windowed_y;
+    int windowed_w, windowed_h;
 
     float pan_x, pan_y;
 
@@ -332,6 +335,11 @@ renderer_ctx renderer_init(int width, int height, const char *title) {
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     
+    ctx->is_fullscreen = 0;
+    ctx->windowed_x = 0;
+    ctx->windowed_y = 0;
+    ctx->windowed_w = 1;
+    ctx->windowed_h = 1;
     ctx->logical_w = 480;
     ctx->logical_h = 320;
     ctx->fbo = 0;
@@ -561,7 +569,7 @@ static void renderer_end_batch(renderer_ctx ctx) {
     const float sy = (float)ctx->screen_h / (float)ctx->logical_h;
     int scale = (int)floorf(fminf(sx, sy));
     if (scale < 1) scale = 1;
-
+    
     const int vp_w = ctx->logical_w * scale;
     const int vp_h = ctx->logical_h * scale;
     const int vp_x = (ctx->screen_w  - vp_w) / 2;
@@ -586,6 +594,43 @@ static void renderer_end_batch(renderer_ctx ctx) {
 
     ctx->last_draw_calls = ctx->draw_calls;
     ctx->last_drawn_instances = ctx->drawn_instances;
+}
+
+void renderer_toggle_fullscreen(renderer_ctx ctx) {
+    if (!ctx->is_fullscreen) {
+        // Save current window position and size
+        glfwGetWindowPos(ctx->window, &ctx->windowed_x, &ctx->windowed_y);
+        int width, height, top, left, bottom, right;
+        glfwGetWindowSize(ctx->window, &width, &height);
+        glfwGetWindowFrameSize(ctx->window, &left, &top, &right, &bottom);
+        ctx->windowed_w = width + left + right;
+        ctx->windowed_h = height + bottom + top;
+
+        // Go fullscreen on the primary monitor
+        GLFWmonitor *monitor = glfwGetPrimaryMonitor();
+        if (!monitor) return;
+
+        const GLFWvidmode *mode = glfwGetVideoMode(monitor);
+        if (!mode) return;
+
+        glfwSetWindowMonitor(
+            ctx->window,
+            monitor,
+            0, 0,
+            mode->width, mode->height,
+            mode->refreshRate
+        );
+        ctx->is_fullscreen = 1;
+    } else {
+        glfwSetWindowMonitor(
+            ctx->window,
+            NULL,
+            ctx->windowed_x, ctx->windowed_y,
+            ctx->windowed_w, ctx->windowed_h,
+            0
+        );
+        ctx->is_fullscreen = 0;
+    }
 }
 
 renderer_statistics renderer_get_stats(renderer_ctx ctx) {
