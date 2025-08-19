@@ -1,6 +1,7 @@
 #include "font.h"
-#include "data_structures/hashtable.h"
+#include "config.h"
 #include "cjson/cJSON.h"
+#include "data_structures/hashtable.h"
 #include "utils/utils.h"
 #include <stdlib.h>
 #include <string.h>
@@ -22,13 +23,16 @@ struct font_s {
 };
 
 static char *get_font_path(const char *partial_path) {
-    char *fullpath = (char*) calloc(strlen(partial_path) + 25, sizeof(char));
+    char *fullpath = (char*) calloc(
+        strlen(partial_path) + sizeof(ASSETS_PATH_PREFIX) + sizeof(FONT_CONFIG_FILE_EXT) - 1, 
+        sizeof(char)
+    );
     if (fullpath == NULL) {
         return NULL;
     }
-    strcpy(fullpath, "assets/");
+    strcpy(fullpath, ASSETS_PATH_PREFIX);
     strcat(fullpath, partial_path);
-    strcat(fullpath, ".font-config.json");
+    strcat(fullpath, FONT_CONFIG_FILE_EXT);
     return fullpath;
 }
 
@@ -78,7 +82,6 @@ static int load_font_config(font f) {
         return 1;
     }
 
-    log_debug("Going through each glyph...");
     // Iterate through the config for each glyph and store it
     cJSON *glyph_config_json = NULL;
     cJSON_ArrayForEach(glyph_config_json, font_config) {
@@ -162,6 +165,11 @@ font font_create(asset_manager_ctx ctx, const char *asset_id, float spacing, flo
 }
 
 int font_render(font f, renderer_ctx renderer, const char* string, int x, int y, color_rgb color) {
+    if (f->font_config == NULL) {
+        log_throttle_error(5000, "Can't render font '{s}' before it is loaded", f->base_asset_id);
+        return 1;
+    }
+
     int set_tint = color.r != 1.0f || color.g != 1.0f || color.b != 1.0f;
     if (set_tint) {
         renderer_set_tint(renderer, color);
@@ -228,6 +236,7 @@ int font_unload(font f) {
     if (f->font_config != NULL) {
         hashtable_foreach(f->font_config, destroy_font_config);
         hashtable_destroy(f->font_config);
+        f->font_config = NULL;
     }
     return asset_manager_asset_unload(f->asset_mgr, f->base_asset_id);
 }

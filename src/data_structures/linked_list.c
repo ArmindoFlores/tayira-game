@@ -8,6 +8,7 @@ struct linked_list_element_s {
 };
 
 struct linked_list_s {
+    size_t size;
     struct linked_list_element_s *head;
 };
 
@@ -21,6 +22,7 @@ linked_list linked_list_create() {
         return NULL;
     }
     ll->head = NULL;
+    ll->size = 0;
     return ll;
 }
 
@@ -40,7 +42,7 @@ int linked_list_pushfront(linked_list ll, const void *element) {
         new_element->next = ll->head;
         ll->head = new_element;
     }
-
+    ll->size++;
     return 0;
 }
 
@@ -48,6 +50,7 @@ void *linked_list_popfront(linked_list ll) {
     if (ll->head == NULL) {
         return NULL;
     }
+    ll->size--;
     void *result = ll->head->value;
     struct linked_list_element_s *prev_head = ll->head;
     ll->head = ll->head->next;
@@ -73,6 +76,10 @@ static iteration_result foreach_noargs_helper(const void* value, void* args) {
 size_t linked_list_foreach(linked_list ll, iteration_result (*callback) (const void* value)) {
     struct f_cb_s f_cb = { .f = callback };
     return linked_list_foreach_args(ll, foreach_noargs_helper, &f_cb);
+}
+
+size_t linked_list_size(linked_list ll) {
+    return ll->size;
 }
 
 void linked_list_destroy(linked_list ll) {

@@ -1,4 +1,5 @@
 #include "asset_manager.h"
+#include "config.h"
 #include "data_structures/hashtable.h"
 #include "data_structures/linked_list.h"
 #include "utils/utils.h"
@@ -15,18 +16,18 @@ struct asset_manager_ctx_s {
 };
 
 static char *get_full_path(const char *partial_path, const char* suffix) {
-    char *full_path = (char*) calloc(strlen(partial_path) + strlen(suffix) + 8, sizeof(char));
+    char *full_path = (char*) calloc(strlen(partial_path) + strlen(suffix) + sizeof(ASSETS_PATH_PREFIX), sizeof(char));
     if (full_path == NULL) {
         return NULL;
     }
-    strcpy(full_path, "assets/");
+    strcpy(full_path, ASSETS_PATH_PREFIX);
     strcat(full_path, partial_path);
     strcat(full_path, suffix);
     return full_path;
 }
 
 static char *get_full_asset_config_path(const char* partial_asset_config_path) {
-    return get_full_path(partial_asset_config_path, ".asset-config.json");
+    return get_full_path(partial_asset_config_path, ASSET_CONFIG_FILE_EXT);
 }
 
 static char *get_full_asset_path(const char* partial_asset_path, const char* asset_file) {
@@ -50,7 +51,7 @@ static int load_inner_asset_config(asset_manager_ctx ctx, cJSON *root_asset_conf
     char *asset_config_string = utils_read_whole_file(asset_config_path);
     free(asset_config_path);
     if (asset_config_string == NULL) {
-        log_error("Failed to read asset config file at 'assets/{s}.asset-config.json'", partial_asset_config_path);
+        log_error("Failed to read asset config file at '{s}/{s}.{s}'", ASSETS_PATH_PREFIX, partial_asset_config_path, ASSET_CONFIG_FILE_EXT);
         return 1;
     }
 

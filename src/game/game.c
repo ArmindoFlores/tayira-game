@@ -1,5 +1,6 @@
 #include "game.h"
 #include "asset_manager.h"
+#include "animation.h"
 #include "font.h"
 #include "logger/logger.h"
 #include "GLFW/glfw3.h"
@@ -10,6 +11,7 @@ struct game_ctx_s {
     int level;
     asset_manager_ctx asset_mgr;
     font base_font_16;
+    animation player_animation;
 };
 
 game_ctx game_context_init() {
@@ -32,9 +34,17 @@ game_ctx game_context_init() {
         return NULL;
     }
 
+    game->player_animation = animation_create(game->asset_mgr, "unarmed_walk", "front-facing");
+    if (game->player_animation == NULL) {
+        game_context_cleanup(game);
+        return NULL;
+    }
+
     // Pre-load some textures
     asset_manager_texture_preload(game->asset_mgr, "tiles/cobblestone_1");
-    asset_manager_asset_and_textures_preload(game->asset_mgr, "unarmed_walk");
+    
+    // Pre-load animations
+    animation_load(game->player_animation);
     
     // Pre-load font textures
     font_load(game->base_font_16);
@@ -62,26 +72,8 @@ int game_update_handler(renderer_ctx ctx, double dt, double t) {
         log_throttle_error(5000, "Failed to get texture!");
     }
 
-    size_t ms = (size_t) (t * 1000);
-    size_t anim_step = (ms / 150) % 6;
-
-    int anim_ids[] = {25, 26, 49, 50};
-    char texture_id[128] = "";
-
     renderer_increment_layer(ctx);
-    for (size_t i = 0; i < (sizeof(anim_ids) / sizeof(int)); i++) {
-        snprintf(texture_id, sizeof(texture_id) - 1, "unarmed_walk/animation%d-%lu", anim_ids[i], anim_step);
-    
-        texture player_sprite = asset_manager_get_texture(game->asset_mgr, texture_id);
-        if (player_sprite != NULL) {
-            float x = (i % 2) * 16;
-            float y = (i / 2) * 16;
-            renderer_draw_texture(ctx, player_sprite, 340 + x, 230 + y);
-        }
-        else {
-            log_throttle_error(5000, "Failed to get texture '{s}'!", texture_id);
-        }
-    }
+    animation_render(game->player_animation, ctx, 340, 240, t);
 
     if (game->debug_info) {
         renderer_increment_layer(ctx);
@@ -146,6 +138,9 @@ void game_context_cleanup(game_ctx ctx) {
     }
     if (ctx->asset_mgr != NULL) {
         asset_manager_cleanup(ctx->asset_mgr);
+    }
+    if (ctx->player_animation != NULL) {
+        animation_destroy(ctx->player_animation);
     }
     free(ctx);
 }

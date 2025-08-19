@@ -2,6 +2,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 char *utils_read_whole_file(const char* filename) {
     FILE *fp = fopen(filename, "r");
@@ -30,4 +31,11 @@ char *utils_read_whole_file(const char* filename) {
 
     contents[bytes_read] = '\0';
     return contents;
+}
+
+char *copy_string(const char *string) {
+    char *new_string = (char*) calloc(strlen(string) + 1, sizeof(char));
+    if (new_string == NULL) return NULL;
+    strcpy(new_string, string);
+    return new_string;
 }

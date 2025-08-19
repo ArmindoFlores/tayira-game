@@ -2,5 +2,6 @@
 #define _H_UTILS_H_
 
 char *utils_read_whole_file(const char *filename);
+char *copy_string(const char *string);
 
 #endif
