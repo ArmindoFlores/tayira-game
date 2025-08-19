@@ -1,5 +1,5 @@
 {
-    "0": {
+    "down": {
         "textures": [
             {
                 "prefix": "animation21",
@@ -24,7 +24,7 @@
         ],
         "interval": 150
     },
-    "1": {
+    "left": {
         "textures": [
             {
                 "prefix": "animation101",
@@ -49,7 +49,7 @@
         ],
         "interval": 150
     },
-    "2": {
+    "right": {
         "textures": [
             {
                 "prefix": "animation181",
@@ -74,7 +74,7 @@
         ],
         "interval": 150
     },
-    "3": {
+    "up": {
         "textures": [
             {
                 "prefix": "animation261",

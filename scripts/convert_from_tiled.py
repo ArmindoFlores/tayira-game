@@ -113,9 +113,9 @@ def convert(args):
                         interval = tile["duration"]
 
                 gathered_assets[key]["anim"] = {
-                    str(i): content for i, content in enumerate([
+                    directions[i]: content for i, content in enumerate([
                         texture_value(value, interval) for value in textures.values()
-                    ])
+                    ]) if len(textures.values()) == len(directions)
                 }
 
 

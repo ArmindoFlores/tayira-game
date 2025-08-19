@@ -188,14 +188,12 @@ static void game_step(game_ctx game, double dt, double t) {
     int relevant_pos = (int) (game->player_direction == DIRECTION_DOWN || game->player_direction == DIRECTION_UP ? game->player_position.y : game->player_position.x);
     if (game->player_moving && abs(game->start_move_pos - relevant_pos) >= game->pixels_per_keypress) {
         game->player_moving = 0;
-        log_debug("Stopped moving after {d}px", abs(game->start_move_pos - relevant_pos));
     }
 
     if (game->player_moving == 0 && game->held_direction != DIRECTION_NONE) {
         game->player_direction = game->held_direction;
         game->player_moving = 1;
         game->start_move_pos = (int) (game->player_direction == DIRECTION_DOWN || game->player_direction == DIRECTION_UP ? game->player_position.y : game->player_position.x);
-        log_debug("Started moving again because user was holding down a key");
     } 
 
     if (!game->player_moving) return;
