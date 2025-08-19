@@ -24,14 +24,18 @@ def ext(filename):
         return ""
     return "."+parts[-1]
 
+def texture_value(value, interval):
+    del value["start_x"]
+    del value["xy"]
+    value["interval"] = interval
+    return value
+
 def convert(args):
     files = os.listdir(args.asset_directory)
 
     config_contents = load_config(files)
     if config_contents is None:
         return 1
-    
-    tile_width, tile_height = config_contents["tilewidth"], config_contents["tileheight"]
 
     layers_to_convert = config_contents["layers"]
     if args.layers is not None:
@@ -48,6 +52,10 @@ def convert(args):
         for tile in tileset["tiles"]:
             animations[tile["id"]] = tile
 
+    tiles_per_anim = 4  # FIXME: don't hard-code this
+    anim_shape = (2, 2)  # FIXME: don't hard-code this
+    directions = ("down", "left", "right", "up")  # FIXME: don't hard-code this
+
     gathered_assets = {}
     for layer in layers_to_convert:
         for gid in layer["data"]:
@@ -56,36 +64,73 @@ def convert(args):
 
                 key = (tileset["name"].lower(), tileset["image"])
                 gathered_assets.setdefault(key, {
-                    "filetype": ext(tileset["image"]),
-                    "textures": {}
+                    "texture": {
+                        "filetype": ext(tileset["image"]),
+                        "textures": {}
+                    },
+                    "anim": {}
                 })
                 if "tiles" not in tileset: continue
 
                 x_step = tileset["tilewidth"] + tileset["spacing"]
                 y_step = tileset["tileheight"] + tileset["spacing"]
 
+                textures = {}
                 for k, animation in enumerate(tileset["tiles"]):
+                    interval = None
                     for i, tile in enumerate(animation["animation"]):
                         tile_w = tile["tileid"] * x_step
                         tile_x = tile_w % tileset["imagewidth"]
                         tile_y = tile_w // tileset["imagewidth"] * y_step
 
-                        gathered_assets[key]["textures"][f"animation{animation['id']}-{i}"] = {
+                        x_norm = tile_x / x_step
+                        actual_y_norm = y_norm = tile_y / y_step
+
+                        if y_norm not in textures:
+                            # Search for a close enough texture
+                            if y_norm - 1 in textures:
+                                actual_y_norm -= 1
+                            else:
+                                textures.setdefault(y_norm, { "start_x": x_norm, "xy": set(), "textures": [] })
+                        
+                        start_x = textures[actual_y_norm]["start_x"]
+                        new_x = int(x_norm - start_x)
+                        new_y = int(y_norm - actual_y_norm)
+                        if new_x < anim_shape[0] and (new_x, new_y) not in textures[actual_y_norm]["xy"]:
+                            textures[actual_y_norm]["textures"].append({
+                                "prefix": f"animation{animation['id']}",
+                                "offset_x": new_x,
+                                "offset_y": new_y,
+                            })
+                            textures[actual_y_norm]["xy"].add((new_x, new_y))
+
+                        gathered_assets[key]["texture"]["textures"][f"animation{animation['id']}-{i}"] = {
                             "width": tileset["tilewidth"],
                             "height": tileset["tileheight"],
                             "offset_x": tile_x,
                             "offset_y": tile_y,
                         }
+                        interval = tile["duration"]
+
+                gathered_assets[key]["anim"] = {
+                    str(i): content for i, content in enumerate([
+                        texture_value(value, interval) for value in textures.values()
+                    ])
+                }
 
 
     os.makedirs(args.output_directory, exist_ok=True)
     project_dir = os.path.dirname(os.path.dirname(__file__))
     relative_path = os.path.relpath(os.path.abspath(args.output_directory), project_dir)
     
-    for (asset_name, asset_src), texture_config in gathered_assets.items():
+    for (asset_name, asset_src), config in gathered_assets.items():
+        texture_config = config["texture"]
+        anim_config = config["anim"]
         shutil.copyfile(os.path.join(args.asset_directory, asset_src), os.path.join("..", relative_path, asset_name + ext(asset_src)))
         with open(os.path.join("..", relative_path, asset_name + ".asset-config.json"), "w") as f:
             json.dump(texture_config, f, indent=4)
+        with open(os.path.join("..", relative_path, asset_name + ".anim-config.json"), "w") as f:
+            json.dump(anim_config, f, indent=4)
 
     config_loc = args.config if args.config is not None else os.path.join("..", project_dir, "assets", "assets.json")
     with open(config_loc, "r") as f:
