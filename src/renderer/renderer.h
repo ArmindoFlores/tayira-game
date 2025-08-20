@@ -13,6 +13,14 @@ typedef struct renderer_statistics {
     size_t drawn_instances;
 } renderer_statistics;
 
+typedef enum render_anchor {
+    RENDER_ANCHOR_CENTER = 0b00000001,
+    RENDER_ANCHOR_LEFT   = 0b00000010,
+    RENDER_ANCHOR_RIGHT  = 0b00000100,
+    RENDER_ANCHOR_TOP    = 0b00001000,
+    RENDER_ANCHOR_BOTTOM = 0b00010000
+} render_anchor;
+
 typedef struct renderer_ctx_s *renderer_ctx;
 typedef int (*key_callback) (renderer_ctx, int key, int scancode, int action, int mods);
 typedef int (*mouse_button_callback) (renderer_ctx, int button, int action, int mods);

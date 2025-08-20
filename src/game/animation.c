@@ -282,7 +282,7 @@ iteration_result render_animation_part(const void *element, void *_args) {
     return ITERATION_CONTINUE;
 }
 
-int animation_render(animation anim, renderer_ctx ctx, int x, int y, double time) {
+int animation_render(animation anim, renderer_ctx ctx, int x, int y, double time, render_anchor anchor) {
     if (anim->anim_config == NULL) {
         log_throttle_error(5000, "Can't render animation '{s}/{s}' before it is loaded", anim->base_asset_id, anim->variant);
         return 1;
@@ -294,12 +294,26 @@ int animation_render(animation anim, renderer_ctx ctx, int x, int y, double time
     }
     size_t step = (ms / anim->interval) % anim->steps;
 
+    int anchor_x = 0, anchor_y = 0;
+    if (anchor & RENDER_ANCHOR_BOTTOM) {
+        anchor_y += anim->rows * anim->texture_height;
+    }
+    if (anchor & RENDER_ANCHOR_RIGHT) {
+        anchor_x += anim->columns * anim->texture_width;
+    }
+    if (anchor_y == 0 && (anchor & RENDER_ANCHOR_CENTER) && !(anchor & RENDER_ANCHOR_LEFT)) {
+        anchor_y += (anim->rows * anim->texture_height) / 2;
+    }
+    if (anchor_x == 0 && (anchor & RENDER_ANCHOR_CENTER) && !(anchor & RENDER_ANCHOR_TOP)) {
+        anchor_x += (anim->columns * anim->texture_width) / 2;
+    }
+
     struct render_animation_part_args_s render_animation_part_args = {
         .anim = anim,
         .step = step,
         .ctx = ctx,
-        .x = x,
-        .y = y
+        .x = x - anchor_x,
+        .y = y - anchor_y
     };
     linked_list_foreach_args(anim->anim_config, render_animation_part, &render_animation_part_args);
     
