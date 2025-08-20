@@ -75,6 +75,7 @@ def convert(args):
 
                 animations = {}
                 correspondance = {}
+                steps = {}
                 for animation in tileset["tiles"]:
                     interval = None
                     for i, tile in enumerate(animation["animation"]):
@@ -88,6 +89,9 @@ def convert(args):
                         x_index = math.floor(x_norm / anim_shape[0])
                         y_index = math.floor(y_norm / anim_shape[1])
 
+                        steps.setdefault(y_index, set())
+                        steps[y_index].add(x_index)
+                        
                         if x_index == 0:
                             animations.setdefault(y_index, set())
                             correspondance.setdefault(y_index, {})
@@ -106,6 +110,7 @@ def convert(args):
                 gathered_assets[key]["anim"] = {
                     animation_names[i]: {
                         "interval": interval,
+                        "steps": len(steps[y_index]),
                         "shape": {
                             "width": anim_shape[0],
                             "height": anim_shape[1],

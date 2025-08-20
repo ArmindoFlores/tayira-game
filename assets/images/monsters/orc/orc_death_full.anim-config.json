@@ -1,15 +1,21 @@
 {
     "down": {
         "interval": 150,
+        "steps": 8,
         "shape": {
             "width": 4,
             "height": 4
         },
         "textures": [
             {
-                "prefix": "animation34",
-                "offset_x": 2,
-                "offset_y": 1
+                "prefix": "animation64",
+                "offset_x": 0,
+                "offset_y": 2
+            },
+            {
+                "prefix": "animation65",
+                "offset_x": 1,
+                "offset_y": 2
             },
             {
                 "prefix": "animation33",
@@ -17,18 +23,8 @@
                 "offset_y": 1
             },
             {
-                "prefix": "animation1",
-                "offset_x": 1,
-                "offset_y": 0
-            },
-            {
                 "prefix": "animation66",
                 "offset_x": 2,
-                "offset_y": 2
-            },
-            {
-                "prefix": "animation64",
-                "offset_x": 0,
                 "offset_y": 2
             },
             {
@@ -37,19 +33,40 @@
                 "offset_y": 0
             },
             {
-                "prefix": "animation65",
+                "prefix": "animation34",
+                "offset_x": 2,
+                "offset_y": 1
+            },
+            {
+                "prefix": "animation1",
                 "offset_x": 1,
-                "offset_y": 2
+                "offset_y": 0
             }
         ]
     },
-    "left": {
+    "up": {
         "interval": 150,
+        "steps": 8,
         "shape": {
             "width": 4,
             "height": 4
         },
         "textures": [
+            {
+                "prefix": "animation162",
+                "offset_x": 2,
+                "offset_y": 1
+            },
+            {
+                "prefix": "animation130",
+                "offset_x": 2,
+                "offset_y": 0
+            },
+            {
+                "prefix": "animation129",
+                "offset_x": 1,
+                "offset_y": 0
+            },
             {
                 "prefix": "animation195",
                 "offset_x": 3,
@@ -61,34 +78,20 @@
                 "offset_y": 1
             },
             {
-                "prefix": "animation162",
-                "offset_x": 2,
-                "offset_y": 1
-            },
-            {
-                "prefix": "animation129",
-                "offset_x": 1,
-                "offset_y": 0
-            },
-            {
-                "prefix": "animation193",
-                "offset_x": 1,
-                "offset_y": 2
-            },
-            {
                 "prefix": "animation194",
                 "offset_x": 2,
                 "offset_y": 2
             },
             {
-                "prefix": "animation130",
-                "offset_x": 2,
-                "offset_y": 0
+                "prefix": "animation193",
+                "offset_x": 1,
+                "offset_y": 2
             }
         ]
     },
-    "right": {
+    "left": {
         "interval": 150,
+        "steps": 8,
         "shape": {
             "width": 4,
             "height": 4
@@ -98,6 +101,16 @@
                 "prefix": "animation321",
                 "offset_x": 1,
                 "offset_y": 2
+            },
+            {
+                "prefix": "animation322",
+                "offset_x": 2,
+                "offset_y": 2
+            },
+            {
+                "prefix": "animation290",
+                "offset_x": 2,
+                "offset_y": 1
             },
             {
                 "prefix": "animation257",
@@ -110,11 +123,6 @@
                 "offset_y": 0
             },
             {
-                "prefix": "animation288",
-                "offset_x": 0,
-                "offset_y": 1
-            },
-            {
                 "prefix": "animation320",
                 "offset_x": 0,
                 "offset_y": 2
@@ -125,53 +133,29 @@
                 "offset_y": 1
             },
             {
-                "prefix": "animation322",
-                "offset_x": 2,
-                "offset_y": 2
-            },
-            {
-                "prefix": "animation290",
-                "offset_x": 2,
+                "prefix": "animation288",
+                "offset_x": 0,
                 "offset_y": 1
             }
         ]
     },
-    "up": {
+    "right": {
         "interval": 150,
+        "steps": 8,
         "shape": {
             "width": 4,
             "height": 4
         },
         "textures": [
             {
-                "prefix": "animation419",
-                "offset_x": 3,
-                "offset_y": 1
-            },
-            {
-                "prefix": "animation385",
-                "offset_x": 1,
-                "offset_y": 0
-            },
-            {
-                "prefix": "animation449",
-                "offset_x": 1,
-                "offset_y": 2
-            },
-            {
-                "prefix": "animation417",
-                "offset_x": 1,
-                "offset_y": 1
-            },
-            {
-                "prefix": "animation450",
-                "offset_x": 2,
-                "offset_y": 2
-            },
-            {
                 "prefix": "animation451",
                 "offset_x": 3,
                 "offset_y": 2
+            },
+            {
+                "prefix": "animation418",
+                "offset_x": 2,
+                "offset_y": 1
             },
             {
                 "prefix": "animation386",
@@ -179,9 +163,29 @@
                 "offset_y": 0
             },
             {
-                "prefix": "animation418",
+                "prefix": "animation450",
                 "offset_x": 2,
+                "offset_y": 2
+            },
+            {
+                "prefix": "animation419",
+                "offset_x": 3,
                 "offset_y": 1
+            },
+            {
+                "prefix": "animation417",
+                "offset_x": 1,
+                "offset_y": 1
+            },
+            {
+                "prefix": "animation449",
+                "offset_x": 1,
+                "offset_y": 2
+            },
+            {
+                "prefix": "animation385",
+                "offset_x": 1,
+                "offset_y": 0
             }
         ]
     }

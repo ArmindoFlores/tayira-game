@@ -107,6 +107,14 @@ static int load_animation_config(animation anim) {
     }
     anim->interval = (size_t) cJSON_GetNumberValue(variant_interval);
 
+    cJSON *variant_steps = cJSON_GetObjectItem(variant_config, "steps");
+    if (variant_steps == NULL || !cJSON_IsNumber(variant_steps)) {
+        log_error("Failed to parse config file for animation variant '{s}/{s}': steps must be a number", anim->base_asset_id, anim->variant);
+        cJSON_Delete(config_json);
+        return 1;
+    }
+    anim->steps = (size_t) cJSON_GetNumberValue(variant_steps);
+
     cJSON *variant_shape = cJSON_GetObjectItem(variant_config, "shape");
     if (variant_shape == NULL || !cJSON_IsObject(variant_shape)) {
         log_error("Failed to parse config file for animation variant '{s}/{s}': shape must be an object", anim->base_asset_id, anim->variant);
@@ -139,6 +147,7 @@ static int load_animation_config(animation anim) {
     // Iterate through each texture and add it to the list
     cJSON *variant_texture = NULL;
     char *texture_prefix = NULL;
+    size_t largest_texture_prefix = 0;
     anim->texture_width = -1;
     anim->texture_height = -1;
     cJSON_ArrayForEach(variant_texture, variant_textures) {
@@ -148,7 +157,13 @@ static int load_animation_config(animation anim) {
             cJSON_Delete(config_json);
             return 1;
         }
-        texture_prefix = cJSON_GetStringValue(texture_prefix_json);
+        char *new_texture_prefix = cJSON_GetStringValue(texture_prefix_json);
+        size_t texture_prefix_length = strlen(new_texture_prefix);
+        if (texture_prefix_length > largest_texture_prefix) {
+            texture_prefix = new_texture_prefix;
+            largest_texture_prefix = texture_prefix_length;
+            log_debug("New largest: {s}", texture_prefix);
+        }
 
         cJSON *texture_offset_x = cJSON_GetObjectItem(variant_texture, "offset_x");
         if (texture_offset_x == NULL || !cJSON_IsNumber(texture_offset_x)) {
@@ -168,7 +183,7 @@ static int load_animation_config(animation anim) {
 
 
         if (anim->texture_height == -1 || anim->texture_width == -1) {
-            char *texture_id = get_animation_texture_id(anim->base_asset_id, texture_prefix, 0);
+            char *texture_id = get_animation_texture_id(anim->base_asset_id, new_texture_prefix, 0);
             if (texture_id == NULL) {
                 log_error("Failed to allocate memory while parsing animation config");
                 cJSON_Delete(config_json);
@@ -191,7 +206,7 @@ static int load_animation_config(animation anim) {
             cJSON_Delete(config_json);
             return 1;
         }
-        animation_info->prefix = copy_string(texture_prefix);
+        animation_info->prefix = copy_string(new_texture_prefix);
         if (animation_info->prefix == NULL) {
             log_error("Failed to allocate memory while parsing animation config");
             free(animation_info);
@@ -203,7 +218,6 @@ static int load_animation_config(animation anim) {
         linked_list_pushfront(anim->anim_config, animation_info);
     }
 
-    anim->steps = linked_list_size(anim->anim_config);
     anim->duration = anim->steps * anim->interval;
     
     anim->texture_id_buffer_size = get_animation_texture_id_length(anim->base_asset_id, texture_prefix, anim->steps) + 1;
@@ -272,7 +286,7 @@ iteration_result render_animation_part(const void *element, void *_args) {
 
     texture anim_texture = asset_manager_get_texture(args->anim->asset_mgr, args->anim->texture_id_buffer);
     if (anim_texture == NULL) {
-        log_throttle_warning(5000, "Failed to render animation part '{s}/{s}-{lu}'", args->anim->base_asset_id, a_info->prefix, args->step);
+        log_throttle_warning(5000, "Failed to render animation part '{s}'. Buffer size: {lu}", args->anim->texture_id_buffer, args->anim->texture_id_buffer_size);
         return ITERATION_CONTINUE;  // Should we stop here?
     }
     int x = args->x + a_info->offset_x * args->anim->texture_width;

@@ -59,14 +59,14 @@ game_ctx game_context_init() {
         return NULL;
     }
 
-    game->anim_walk_down = animation_create(game->asset_mgr, "unarmed_walk", "down");
-    game->anim_walk_up = animation_create(game->asset_mgr, "unarmed_walk", "up");
-    game->anim_walk_right = animation_create(game->asset_mgr, "unarmed_walk", "right");
-    game->anim_walk_left = animation_create(game->asset_mgr, "unarmed_walk", "left");
-    game->anim_idle_down = animation_create(game->asset_mgr, "unarmed_idle", "down");
-    game->anim_idle_up = animation_create(game->asset_mgr, "unarmed_idle", "up");
-    game->anim_idle_right = animation_create(game->asset_mgr, "unarmed_idle", "right");
-    game->anim_idle_left = animation_create(game->asset_mgr, "unarmed_idle", "left");
+    game->anim_walk_down = animation_create(game->asset_mgr, "goblin_walk_full", "down");
+    game->anim_walk_up = animation_create(game->asset_mgr, "goblin_walk_full", "up");
+    game->anim_walk_right = animation_create(game->asset_mgr, "goblin_walk_full", "right");
+    game->anim_walk_left = animation_create(game->asset_mgr, "goblin_walk_full", "left");
+    game->anim_idle_down = animation_create(game->asset_mgr, "goblin_idle_full", "down");
+    game->anim_idle_up = animation_create(game->asset_mgr, "goblin_idle_full", "up");
+    game->anim_idle_right = animation_create(game->asset_mgr, "goblin_idle_full", "right");
+    game->anim_idle_left = animation_create(game->asset_mgr, "goblin_idle_full", "left");
     if (
         game->anim_walk_down == NULL || 
         game->anim_walk_up == NULL || 
