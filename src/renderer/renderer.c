@@ -8,8 +8,33 @@
 #include <string.h>
 #include <math.h>
 
+#define DECLARE_UNIFORM(__obj, __name)\
+    __obj.__name ## Loc = get_uniform_location(__obj.base_data.shader_program, #__name);\
+    if (__obj.__name ## Loc == -1) {\
+        return 1;\
+    }\
+
+#define DECLARE_SHADERS(__obj, __vertex, __fragment)\
+    GLuint vs = compile_shader(GL_VERTEX_SHADER, __vertex);\
+    if (vs == 0) {\
+        return 1;\
+    }\
+\
+    GLuint fs = compile_shader(GL_FRAGMENT_SHADER, __fragment);\
+    if (fs == 0) {\
+        glDeleteShader(vs);\
+        return 1;\
+    }\
+\
+    __obj.base_data.shader_program = glCreateProgram();\
+    glAttachShader(__obj.base_data.shader_program, vs);\
+    glAttachShader(__obj.base_data.shader_program, fs);\
+    glLinkProgram(__obj.base_data.shader_program);\
+\
+    glDeleteShader(vs);\
+    glDeleteShader(fs);
+
 static const char BASE_SHADER_PATH[] = "assets/shaders/";
-static const int MAX_DRAW_INSTANCES = 16384;
 static const float QUAD_VERTS[] = {
     0.0f, 1.0f, 0.0f, 1.0f,
     1.0f, 1.0f, 1.0f, 1.0f,
@@ -17,34 +42,66 @@ static const float QUAD_VERTS[] = {
     0.0f, 0.0f, 0.0f, 0.0f
 };
 static const unsigned QUAD_IDX[] = { 0, 1, 2, 0, 2, 3 };
-
-struct texture_buffers_s {
-    GLuint vao, instance_vbo, quad_vbo, ebo;
+static const float LINE_QUAD_VERTS[] = {
+    -0.5f, -0.5f,
+     0.5f, -0.5f,
+     0.5f,  0.5f,
+    -0.5f,  0.5f
 };
+static const unsigned LINE_IDX[] = { 0, 1, 2, 0, 2, 3 };
 
-typedef struct gl_instance_data {
+typedef struct batch_renderer_data {
+    GLuint shader_program;
+    GLuint vertex_array_buffer, vertex_buffer_object, element_buffer_object;
+    GLuint instance_vertex_buffer_object;
+    size_t max_instances;
+    size_t instance_count;
+} batch_renderer_data;
+
+typedef struct gl_texture_instance {
     float x, y;
     float w, h;
     float u0, v0, u1, v1;
     float z;
-} gl_instance_data;
+} gl_texture_instance;
 
-struct renderer_ctx_s {
-    GLFWwindow *window;
-    GLuint shader_program;
-    struct texture_buffers_s t_buf; 
-
+typedef struct texture_renderer_data {
+    batch_renderer_data base_data;
+    gl_texture_instance *instances;
     GLuint current_texture;
-    gl_instance_data *instances_cpu;
-    GLsizei instance_count;
 
-    unsigned int layer;
-    float layer_step;
-
-    // cached uniforms
+    // Uniforms
     GLint uScreenLoc;
     GLint uPanLoc; 
     GLint uColorLoc;
+} texture_renderer_data;
+
+typedef struct gl_line_instance {
+    float start_x, start_y;
+    float dir_x, dir_y;
+    float length;
+    float width;
+    float r, g, b;
+    float z;
+} gl_line_instance;
+
+typedef struct line_renderer_data {
+    batch_renderer_data base_data;
+    gl_line_instance *instances;
+
+    // Uniforms
+    GLint uScreenLoc;
+    GLint uPanLoc; 
+} line_renderer_data;
+
+struct renderer_ctx_s {
+    GLFWwindow *window;
+
+    texture_renderer_data texture_renderer_data; 
+    line_renderer_data line_renderer_data; 
+
+    unsigned int layer;
+    float layer_step;
 
     int logical_w, logical_h;
 
@@ -103,7 +160,7 @@ static char *load_shader(const char *filename) {
 
     char *shader_source = utils_read_whole_file(full_name);
     if (shader_source == NULL) {
-        log_error("Failed to read file at '%s'", full_name);
+        log_error("Failed to read file at '{s}'", full_name);
         free(full_name);
         return NULL;
     }
@@ -186,40 +243,6 @@ static int init_user_window(GLFWwindow *win, renderer_ctx ctx) {
     return 0;
 }
 
-static void init_texture_buffers(renderer_ctx ctx) {
-    glGenVertexArrays(1, &ctx->t_buf.vao);
-    glBindVertexArray(ctx->t_buf.vao);
-
-    glGenBuffers(1, &ctx->t_buf.quad_vbo);
-    glBindBuffer(GL_ARRAY_BUFFER, ctx->t_buf.quad_vbo);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(QUAD_VERTS), QUAD_VERTS, GL_STATIC_DRAW);
-
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4*sizeof(float), (void*)0);
-    glEnableVertexAttribArray(0);
-
-    glGenBuffers(1, &ctx->t_buf.ebo);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ctx->t_buf.ebo);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(QUAD_IDX), QUAD_IDX, GL_STATIC_DRAW);
-
-    glGenBuffers(1, &ctx->t_buf.instance_vbo);
-    glBindBuffer(GL_ARRAY_BUFFER, ctx->t_buf.instance_vbo);
-    glBufferData(GL_ARRAY_BUFFER, MAX_DRAW_INSTANCES * sizeof(gl_instance_data), NULL, GL_STREAM_DRAW);
-
-    glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, sizeof(gl_instance_data), (void*) offsetof(gl_instance_data, x));
-    glEnableVertexAttribArray(1);
-    glVertexAttribDivisor(1, 1);
-
-    glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, sizeof(gl_instance_data), (void*) offsetof(gl_instance_data, u0));
-    glEnableVertexAttribArray(2);
-    glVertexAttribDivisor(2, 1);
-
-    glVertexAttribPointer(3, 1, GL_FLOAT, GL_FALSE, sizeof(gl_instance_data), (void*) offsetof(gl_instance_data, z));
-    glEnableVertexAttribArray(3);
-    glVertexAttribDivisor(3, 1);
-
-    glBindVertexArray(0);
-}
-
 static int renderer_create_offscreen(renderer_ctx ctx, int logical_w, int logical_h) {
     if (logical_w <= 0 || logical_h <= 0) return 1;
     ctx->logical_w = logical_w;
@@ -259,6 +282,12 @@ static int renderer_create_present_pipeline(renderer_ctx ctx) {
     }
 
     ctx->present_shader = glCreateProgram();
+    if (ctx->present_shader == 0) {
+        log_error("Failed to create present shader");
+        glDeleteShader(vs); 
+        glDeleteShader(fs); 
+        return 1;
+    }
     glAttachShader(ctx->present_shader, vs);
     glAttachShader(ctx->present_shader, fs);
     glLinkProgram(ctx->present_shader);
@@ -297,17 +326,15 @@ static int renderer_create_present_pipeline(renderer_ctx ctx) {
 }
 
 static void renderer_destroy_present_pipeline(renderer_ctx ctx) {
-    if (!ctx) return;
-    if (ctx->present_vbo) { glDeleteBuffers(1, &ctx->present_vbo); ctx->present_vbo = 0; }
-    if (ctx->present_vao) { glDeleteVertexArrays(1, &ctx->present_vao); ctx->present_vao = 0; }
-    if (ctx->present_shader) { glDeleteProgram(ctx->present_shader); ctx->present_shader = 0; }
+    if (ctx->present_vbo != 0) glDeleteBuffers(1, &ctx->present_vbo);
+    if (ctx->present_vao != 0) glDeleteVertexArrays(1, &ctx->present_vao);
+    if (ctx->present_shader != 0) glDeleteProgram(ctx->present_shader);
 }
 
 static void renderer_destroy_offscreen(renderer_ctx ctx) {
-    if (!ctx) return;
-    if (ctx->fbo_depth) { glDeleteRenderbuffers(1, &ctx->fbo_depth); ctx->fbo_depth = 0; }
-    if (ctx->fbo_color) { glDeleteTextures(1, &ctx->fbo_color); ctx->fbo_color = 0; }
-    if (ctx->fbo)       { glDeleteFramebuffers(1, &ctx->fbo); ctx->fbo = 0; }
+    if (ctx->fbo_depth != 0) glDeleteRenderbuffers(1, &ctx->fbo_depth);
+    if (ctx->fbo_color != 0) glDeleteTextures(1, &ctx->fbo_color);
+    if (ctx->fbo != 0) glDeleteFramebuffers(1, &ctx->fbo);
 }
 
 static GLint get_uniform_location(GLuint shader_program, const char* name) {
@@ -318,8 +345,113 @@ static GLint get_uniform_location(GLuint shader_program, const char* name) {
     return result;
 }
 
+static int create_texture_buffers(renderer_ctx ctx) {
+    ctx->texture_renderer_data.instances = (gl_texture_instance*) malloc(sizeof(gl_texture_instance) * ctx->texture_renderer_data.base_data.max_instances);
+    if (ctx->texture_renderer_data.instances == NULL) {
+        return 1;
+    }
+
+    glGenVertexArrays(1, &ctx->texture_renderer_data.base_data.vertex_array_buffer);
+    glBindVertexArray(ctx->texture_renderer_data.base_data.vertex_array_buffer);
+
+    glGenBuffers(1, &ctx->texture_renderer_data.base_data.vertex_buffer_object);
+    glBindBuffer(GL_ARRAY_BUFFER, ctx->texture_renderer_data.base_data.vertex_buffer_object);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(QUAD_VERTS), QUAD_VERTS, GL_STATIC_DRAW);
+
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4*sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
+
+    glGenBuffers(1, &ctx->texture_renderer_data.base_data.element_buffer_object);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ctx->texture_renderer_data.base_data.element_buffer_object);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(QUAD_IDX), QUAD_IDX, GL_STATIC_DRAW);
+
+    glGenBuffers(1, &ctx->texture_renderer_data.base_data.instance_vertex_buffer_object);
+    glBindBuffer(GL_ARRAY_BUFFER, ctx->texture_renderer_data.base_data.instance_vertex_buffer_object);
+    glBufferData(GL_ARRAY_BUFFER, ctx->texture_renderer_data.base_data.max_instances * sizeof(gl_texture_instance), NULL, GL_STREAM_DRAW);
+
+    glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, sizeof(gl_texture_instance), (void*) offsetof(gl_texture_instance, x));
+    glEnableVertexAttribArray(1);
+    glVertexAttribDivisor(1, 1);
+
+    glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, sizeof(gl_texture_instance), (void*) offsetof(gl_texture_instance, u0));
+    glEnableVertexAttribArray(2);
+    glVertexAttribDivisor(2, 1);
+
+    glVertexAttribPointer(3, 1, GL_FLOAT, GL_FALSE, sizeof(gl_texture_instance), (void*) offsetof(gl_texture_instance, z));
+    glEnableVertexAttribArray(3);
+    glVertexAttribDivisor(3, 1);
+
+    glBindVertexArray(0);
+
+    DECLARE_SHADERS(ctx->texture_renderer_data, "texture/vertex.vs", "texture/fragment.fs");
+
+    DECLARE_UNIFORM(ctx->texture_renderer_data, uScreen);
+    DECLARE_UNIFORM(ctx->texture_renderer_data, uPan);
+    DECLARE_UNIFORM(ctx->texture_renderer_data, uColor);
+
+    return 0;
+}
+
+static int create_line_buffers(renderer_ctx ctx) {
+    ctx->line_renderer_data.instances = (gl_line_instance*) malloc(sizeof(gl_line_instance) * ctx->line_renderer_data.base_data.max_instances);
+    if (ctx->line_renderer_data.instances == NULL) {
+        return 1;
+    }
+
+    glGenVertexArrays(1, &ctx->line_renderer_data.base_data.vertex_array_buffer);
+    glBindVertexArray(ctx->line_renderer_data.base_data.vertex_array_buffer);
+
+    glGenBuffers(1, &ctx->line_renderer_data.base_data.vertex_buffer_object);
+    glBindBuffer(GL_ARRAY_BUFFER, ctx->line_renderer_data.base_data.vertex_buffer_object);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(LINE_QUAD_VERTS), LINE_QUAD_VERTS, GL_STATIC_DRAW);
+
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
+
+    glGenBuffers(1, &ctx->line_renderer_data.base_data.element_buffer_object);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ctx->line_renderer_data.base_data.element_buffer_object);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(LINE_IDX), LINE_IDX, GL_STATIC_DRAW);
+
+    glGenBuffers(1, &ctx->line_renderer_data.base_data.instance_vertex_buffer_object);
+    glBindBuffer(GL_ARRAY_BUFFER, ctx->line_renderer_data.base_data.instance_vertex_buffer_object);
+    glBufferData(GL_ARRAY_BUFFER, ctx->line_renderer_data.base_data.max_instances * sizeof(gl_line_instance), NULL, GL_DYNAMIC_DRAW);
+
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(gl_line_instance), (void*) offsetof(gl_line_instance, start_x));
+    glVertexAttribDivisor(1, 1);
+
+    glEnableVertexAttribArray(2);
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(gl_line_instance), (void*) offsetof(gl_line_instance, dir_x));
+    glVertexAttribDivisor(2, 1);
+
+    glEnableVertexAttribArray(3);
+    glVertexAttribPointer(3, 1, GL_FLOAT, GL_FALSE, sizeof(gl_line_instance), (void*) offsetof(gl_line_instance, length));
+    glVertexAttribDivisor(3, 1);
+
+    glEnableVertexAttribArray(4);
+    glVertexAttribPointer(4, 1, GL_FLOAT, GL_FALSE, sizeof(gl_line_instance), (void*) offsetof(gl_line_instance, width));
+    glVertexAttribDivisor(4, 1);
+
+    glEnableVertexAttribArray(5);
+    glVertexAttribPointer(5, 3, GL_FLOAT, GL_FALSE, sizeof(gl_line_instance), (void*) offsetof(gl_line_instance, r));
+    glVertexAttribDivisor(5, 1);
+
+    glEnableVertexAttribArray(6);
+    glVertexAttribPointer(6, 1, GL_FLOAT, GL_FALSE, sizeof(gl_line_instance), (void*) offsetof(gl_line_instance, z));
+    glVertexAttribDivisor(6, 1);
+
+    glBindVertexArray(0);
+
+    DECLARE_SHADERS(ctx->line_renderer_data, "line/vertex.vs", "line/fragment.fs");
+
+    DECLARE_UNIFORM(ctx->line_renderer_data, uScreen);
+    DECLARE_UNIFORM(ctx->line_renderer_data, uPan);
+
+    return 0;
+}
+
 renderer_ctx renderer_init(int width, int height, const char *title) {
-    renderer_ctx ctx = (renderer_ctx) malloc(sizeof(struct renderer_ctx_s));
+    renderer_ctx ctx = (renderer_ctx) calloc(1, sizeof(struct renderer_ctx_s));
     if (ctx == NULL) {
         log_error("Failed to allocate memory for renderer context");
         return NULL;
@@ -335,101 +467,53 @@ renderer_ctx renderer_init(int width, int height, const char *title) {
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     
-    ctx->is_fullscreen = 0;
-    ctx->windowed_x = 0;
-    ctx->windowed_y = 0;
     ctx->windowed_w = 1;
     ctx->windowed_h = 1;
     ctx->logical_w = 480;
     ctx->logical_h = 320;
-    ctx->fbo = 0;
-    ctx->fbo_color = 0;
-    ctx->fbo_depth = 0;
-    ctx->present_shader = 0;
-    ctx->present_vao = 0;
-    ctx->present_vbo = 0;
     ctx->layer = 1;
     ctx->layer_step = 5e-4;
     ctx->user_context = NULL;
-    ctx->should_close = 0;
-    ctx->instance_count = 0;
-    ctx->drawn_instances = 0;
-    ctx->draw_calls = 0;
-    ctx->last_drawn_instances = 0;
-    ctx->last_draw_calls = 0;
     ctx->pan_x = 0;
     ctx->pan_y = 0;
     ctx->screen_w = 1;
     ctx->screen_h = 1;
-    ctx->current_texture = 0;
-    ctx->instances_cpu = (gl_instance_data*) malloc(sizeof(gl_instance_data) * MAX_DRAW_INSTANCES);
-    if (ctx->instances_cpu == NULL) {
-        log_error("Failed to allocate instance buffer");
-        glfwTerminate();
-        free(ctx);
-        return NULL;
-    }
+
+    ctx->texture_renderer_data.base_data.max_instances = 16384;
+    ctx->line_renderer_data.base_data.max_instances = 4096;
+
     ctx->window = glfwCreateWindow(width, height, title, NULL, NULL);
     if (ctx->window == NULL) {
         log_error("Failed to create window");
-        glfwTerminate();
-        free(ctx->instances_cpu);
-        free(ctx);
+        renderer_cleanup(ctx);
         return NULL;
     }
 
     glfwMakeContextCurrent(ctx->window);
 
-    init_user_window(ctx->window, ctx);
+    if (init_user_window(ctx->window, ctx) != 0) {
+        log_error("Failed to init window callbacks\n");
+        renderer_cleanup(ctx);
+        return NULL;
+    }
 
     if (glewInit() != GLEW_OK) {
         log_error("Failed to init GLEW\n");
-        free(ctx->instances_cpu);
-        free(ctx);
+        renderer_cleanup(ctx);
         return NULL;
     }
 
-    init_texture_buffers(ctx);
-
-    GLuint vs = compile_shader(GL_VERTEX_SHADER, "texture/vertex.vs");
-    if (vs == 0) {
-        free(ctx->instances_cpu);
-        free(ctx);
+    if (create_texture_buffers(ctx) != 0) {
+        log_error("Failed to initialize texture buffers");
+        renderer_cleanup(ctx);
         return NULL;
     }
 
-    GLuint fs = compile_shader(GL_FRAGMENT_SHADER, "texture/fragment.fs");
-    if (fs == 0) {
-        free(ctx->instances_cpu);
-        free(ctx);
+    if (create_line_buffers(ctx) != 0) {
+        log_error("Failed to initialize line buffers");
+        renderer_cleanup(ctx);
         return NULL;
     }
-
-    ctx->shader_program = glCreateProgram();
-    glAttachShader(ctx->shader_program, vs);
-    glAttachShader(ctx->shader_program, fs);
-    glLinkProgram(ctx->shader_program);
-    ctx->uScreenLoc = get_uniform_location(ctx->shader_program, "uScreen");
-    ctx->uPanLoc = get_uniform_location(ctx->shader_program, "uPan");
-    ctx->uColorLoc = get_uniform_location(ctx->shader_program, "uColor");
-    if (ctx->uScreenLoc == -1) {
-        free(ctx->instances_cpu);
-        free(ctx);
-        return NULL;
-    }
-    if (ctx->uPanLoc == -1) {
-        free(ctx->instances_cpu);
-        free(ctx);
-        return NULL;
-    }
-    if (ctx->uColorLoc == -1) {
-        free(ctx->instances_cpu);
-        free(ctx);
-        return NULL;
-    }
-
-    glDeleteShader(vs);
-    glDeleteShader(fs);
 
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LESS);
@@ -486,38 +570,108 @@ void renderer_fill(renderer_ctx, color_rgb color) {
     glClear(GL_COLOR_BUFFER_BIT);
 }
 
-void renderer_flush_batch(renderer_ctx ctx) {
-    if (ctx->instance_count == 0 || ctx->current_texture == 0) return;
+static void renderer_flush_texture_batch(renderer_ctx ctx) {
+    glUseProgram(ctx->texture_renderer_data.base_data.shader_program);
+    glBindVertexArray(ctx->texture_renderer_data.base_data.vertex_array_buffer);
+    glBindBuffer(GL_ARRAY_BUFFER, ctx->texture_renderer_data.base_data.instance_vertex_buffer_object);
 
-    glBindBuffer(GL_ARRAY_BUFFER, ctx->t_buf.instance_vbo);
-    glBufferData(GL_ARRAY_BUFFER, (GLsizeiptr)(ctx->instance_count * sizeof(gl_instance_data)), ctx->instances_cpu, GL_STREAM_DRAW);
+    glUniform2f(ctx->texture_renderer_data.uScreenLoc, (float)ctx->logical_w, (float)ctx->logical_h);
+    if (ctx->texture_renderer_data.uPanLoc >= 0) {
+        glUniform2f(ctx->texture_renderer_data.uPanLoc, ctx->pan_x, ctx->pan_y);
+    }
+    glUniform4f(ctx->texture_renderer_data.uColorLoc, 1.0f, 1.0f, 1.0f, 1.0f);
+
+    glBufferData(
+        GL_ARRAY_BUFFER, 
+        (GLsizeiptr)(ctx->texture_renderer_data.base_data.instance_count * sizeof(gl_texture_instance)),
+        ctx->texture_renderer_data.instances, 
+        GL_STREAM_DRAW
+    );
 
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, ctx->current_texture);
+    glBindTexture(GL_TEXTURE_2D, ctx->texture_renderer_data.current_texture);
 
-    glDrawElementsInstanced(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0, ctx->instance_count);
+    glDrawElementsInstanced(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0, ctx->texture_renderer_data.base_data.instance_count);
 
-    ctx->instance_count = 0;
+    ctx->texture_renderer_data.base_data.instance_count = 0;
     ctx->draw_calls++;
+}
+
+static void renderer_flush_line_batch(renderer_ctx ctx) {
+    glUseProgram(ctx->line_renderer_data.base_data.shader_program);
+    glBindVertexArray(ctx->line_renderer_data.base_data.vertex_array_buffer);
+    glBindBuffer(GL_ARRAY_BUFFER, ctx->line_renderer_data.base_data.instance_vertex_buffer_object);
+
+    glUniform2f(ctx->line_renderer_data.uScreenLoc, (float)ctx->logical_w, (float)ctx->logical_h);
+    if (ctx->line_renderer_data.uPanLoc >= 0) {
+        glUniform2f(ctx->line_renderer_data.uPanLoc, ctx->pan_x, ctx->pan_y);
+    }
+
+    glBufferData(
+        GL_ARRAY_BUFFER, 
+        (GLsizeiptr) ctx->line_renderer_data.base_data.instance_count * sizeof(gl_line_instance),
+        ctx->line_renderer_data.instances,
+        GL_STREAM_DRAW
+    );
+
+    glDrawElementsInstanced(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0, ctx->line_renderer_data.base_data.instance_count);
+
+    ctx->line_renderer_data.base_data.instance_count = 0;
+    ctx->draw_calls++;
+}
+
+void renderer_flush_batch(renderer_ctx ctx) {
+    if (ctx->texture_renderer_data.base_data.instance_count > 0 && ctx->texture_renderer_data.current_texture != 0) {
+        renderer_flush_texture_batch(ctx);
+    }
+    if (ctx->line_renderer_data.base_data.instance_count > 0) {
+        renderer_flush_line_batch(ctx);
+    }
+}
+
+void renderer_draw_line(renderer_ctx ctx, float start_x, float start_y, float end_x, float end_y, color_rgb color, float thickness) {
+    float dx = end_x - start_x;
+    float dy = end_y - start_y;
+    float len = sqrtf(dx*dx + dy*dy);
+    if (len <= 1e-6f) return;
+
+    float inv_len = 1.0f / len;
+    float dir_x = dx * inv_len;
+    float dir_y = dy * inv_len;
+
+    if (ctx->line_renderer_data.base_data.instance_count >= ctx->line_renderer_data.base_data.max_instances) {
+        renderer_flush_line_batch(ctx);
+    }
+
+    gl_line_instance *inst = &ctx->line_renderer_data.instances[ctx->line_renderer_data.base_data.instance_count++];
+    inst->start_x = start_x;
+    inst->start_y = start_y;
+    inst->dir_x = dir_x;
+    inst->dir_y = dir_y;
+    inst->length = len;
+    inst->width = thickness;
+    inst->r = color.r; inst->g = color.g; inst->b = color.b;
+
+    inst->z = ctx->layer_step;
 }
 
 void renderer_draw_texture(renderer_ctx ctx, texture t, float x, float y) {
     const unsigned int tex_id = texture_get_id(t);
 
-    if (ctx->current_texture != 0 && ctx->current_texture != tex_id) {
-        renderer_flush_batch(ctx);
+    if (ctx->texture_renderer_data.current_texture != 0 && ctx->texture_renderer_data.current_texture != tex_id) {
+        renderer_flush_texture_batch(ctx);
     }
-    ctx->current_texture = tex_id;
+    ctx->texture_renderer_data.current_texture = tex_id;
 
-    if (ctx->instance_count >= MAX_DRAW_INSTANCES) {
-        renderer_flush_batch(ctx);
-        ctx->current_texture = tex_id;
+    if (ctx->texture_renderer_data.base_data.instance_count >= ctx->texture_renderer_data.base_data.max_instances) {
+        renderer_flush_texture_batch(ctx);
+        ctx->texture_renderer_data.current_texture = tex_id;
     }
 
     const float w = (float) texture_get_width(t);
     const float h = (float) texture_get_height(t);
 
-    gl_instance_data *inst = &ctx->instances_cpu[ctx->instance_count++];
+    gl_texture_instance *inst = &ctx->texture_renderer_data.instances[ctx->texture_renderer_data.base_data.instance_count++];
     inst->x = x; inst->y = y; inst->w = w; inst->h = h;
     inst->z = 1.0 - ctx->layer * ctx->layer_step;
     
@@ -529,13 +683,13 @@ void renderer_draw_texture(renderer_ctx ctx, texture t, float x, float y) {
 }
 
 void renderer_set_tint(renderer_ctx ctx, color_rgb color) {
-    renderer_flush_batch(ctx);
-    glUniform4f(ctx->uColorLoc, color.r, color.g, color.b, 1.0f);
+    renderer_flush_texture_batch(ctx);
+    glUniform4f(ctx->texture_renderer_data.uColorLoc, color.r, color.g, color.b, 1.0f);
 }
 
 void renderer_clear_tint(renderer_ctx ctx) {
-    renderer_flush_batch(ctx);
-    glUniform4f(ctx->uColorLoc, 1.0f, 1.0f, 1.0f, 1.0f);
+    renderer_flush_texture_batch(ctx);
+    glUniform4f(ctx->texture_renderer_data.uColorLoc, 1.0f, 1.0f, 1.0f, 1.0f);
 }
 
 static void renderer_begin_batch(renderer_ctx ctx) {
@@ -543,15 +697,6 @@ static void renderer_begin_batch(renderer_ctx ctx) {
     glViewport(0, 0, ctx->logical_w, ctx->logical_h);
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-    glUseProgram(ctx->shader_program);
-    glBindVertexArray(ctx->t_buf.vao);
-
-    glUniform2f(ctx->uScreenLoc, (float)ctx->logical_w, (float)ctx->logical_h);
-    if (ctx->uPanLoc >= 0) {
-        glUniform2f(ctx->uPanLoc, ctx->pan_x, ctx->pan_y);
-    }
-    glUniform4f(ctx->uColorLoc, 1.0f, 1.0f, 1.0f, 1.0f);
 
     ctx->draw_calls = 0;
     ctx->drawn_instances = 0;
@@ -674,20 +819,35 @@ void renderer_run(
     }
 }
 
+void destroy_batch_renderer_objects(batch_renderer_data *data) {
+    if (data->shader_program != 0) glDeleteProgram(data->shader_program);
+    if (data->vertex_array_buffer != 0) glDeleteVertexArrays(1, &data->vertex_array_buffer);
+    if (data->vertex_buffer_object != 0) glDeleteBuffers(1, &data->vertex_buffer_object);
+    if (data->instance_vertex_buffer_object != 0) glDeleteBuffers(1, &data->instance_vertex_buffer_object);
+    if (data->element_buffer_object != 0) glDeleteBuffers(1, &data->element_buffer_object);
+}
+
 void renderer_cleanup(renderer_ctx ctx) {
     if (ctx == NULL) return;
+
+    // Free the window user pointer
     window_adapter *wa = (window_adapter *)glfwGetWindowUserPointer(ctx->window);
     if (wa != NULL) free(wa);
-    if (ctx->instances_cpu != NULL) free(ctx->instances_cpu);
     glfwSetWindowUserPointer(ctx->window, NULL);
-    glDeleteProgram(ctx->shader_program);
-    glDeleteBuffers(1, &ctx->t_buf.instance_vbo);
-    glDeleteBuffers(1, &ctx->t_buf.quad_vbo);
-    glDeleteBuffers(1, &ctx->t_buf.ebo);
-    glDeleteVertexArrays(1, &ctx->t_buf.vao);
+
     renderer_destroy_present_pipeline(ctx);
     renderer_destroy_offscreen(ctx);
-    glfwDestroyWindow(ctx->window);
+    
+    if (ctx->window != NULL) glfwDestroyWindow(ctx->window);
     glfwTerminate();
+
+    // Destroy *_renderer_data GL objects
+    destroy_batch_renderer_objects(&ctx->texture_renderer_data.base_data);
+    destroy_batch_renderer_objects(&ctx->line_renderer_data.base_data);
+
+    // Free *_renderer_data instances
+    free(ctx->texture_renderer_data.instances);
+    free(ctx->line_renderer_data.instances);
+
     free(ctx);
 }

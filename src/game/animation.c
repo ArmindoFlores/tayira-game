@@ -333,6 +333,39 @@ int animation_render(animation anim, renderer_ctx ctx, int x, int y, double time
     return 0;
 }
 
+int animation_render_bounds(animation anim, renderer_ctx ctx, int x, int y, render_anchor anchor) {
+    if (anim->anim_config == NULL) {
+        log_throttle_error(5000, "Can't render bounds for animation '{s}/{s}' before it is loaded", anim->base_asset_id, anim->variant);
+        return 1;
+    }
+
+    int anchor_x = 0, anchor_y = 0;
+    if (anchor & RENDER_ANCHOR_BOTTOM) {
+        anchor_y += anim->rows * anim->texture_height;
+    }
+    if (anchor & RENDER_ANCHOR_RIGHT) {
+        anchor_x += anim->columns * anim->texture_width;
+    }
+    if (anchor_y == 0 && (anchor & RENDER_ANCHOR_CENTER) && !(anchor & RENDER_ANCHOR_LEFT)) {
+        anchor_y += (anim->rows * anim->texture_height) / 2;
+    }
+    if (anchor_x == 0 && (anchor & RENDER_ANCHOR_CENTER) && !(anchor & RENDER_ANCHOR_TOP)) {
+        anchor_x += (anim->columns * anim->texture_width) / 2;
+    }
+
+    int width = anim->columns * anim->texture_width;
+    int height = anim->rows * anim->texture_height;
+    int x_start = x - anchor_x;
+    int y_start = y - anchor_y;
+
+    renderer_draw_line(ctx, x_start, y_start, x_start + width, y_start, (color_rgb) { .r = 1.0f, .g = 0.0f, .b = 0.0f}, 1);
+    renderer_draw_line(ctx, x_start + width, y_start, x_start + width, y_start + height, (color_rgb) { .r = 1.0f, .g = 0.0f, .b = 0.0f}, 1);
+    renderer_draw_line(ctx, x_start + width, y_start + height, x_start, y_start + height, (color_rgb) { .r = 1.0f, .g = 0.0f, .b = 0.0f}, 1);
+    renderer_draw_line(ctx, x_start, y_start + height, x_start, y_start, (color_rgb) { .r = 1.0f, .g = 0.0f, .b = 0.0f}, 1);
+    
+    return 0;
+}
+
 int animation_load(animation anim) {
     if (load_animation_config(anim) != 0) {
         return 1;

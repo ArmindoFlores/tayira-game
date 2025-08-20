@@ -179,6 +179,9 @@ static void game_render(game_ctx game, renderer_ctx ctx, double, double t) {
         else {
             log_warning("Failed to write to buffer");
         }
+        if (anim_to_draw != NULL) {
+            animation_render_bounds(anim_to_draw, ctx, (int) game->player_position.x, (int) game->player_position.y, RENDER_ANCHOR_CENTER);
+        }
     }
 }
 
