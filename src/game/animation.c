@@ -19,7 +19,7 @@ struct animation_s {
     char *texture_id_buffer;
     size_t texture_id_buffer_size;
     
-    int texture_width, texture_height;
+    int texture_width, texture_height, columns, rows;
     linked_list anim_config;
     size_t start, interval, duration, steps;
 };
@@ -106,6 +106,28 @@ static int load_animation_config(animation anim) {
         return 1;
     }
     anim->interval = (size_t) cJSON_GetNumberValue(variant_interval);
+
+    cJSON *variant_shape = cJSON_GetObjectItem(variant_config, "shape");
+    if (variant_shape == NULL || !cJSON_IsObject(variant_shape)) {
+        log_error("Failed to parse config file for animation variant '{s}/{s}': shape must be an object", anim->base_asset_id, anim->variant);
+        cJSON_Delete(config_json);
+        return 1;
+    }
+    cJSON *variant_shape_width = cJSON_GetObjectItem(variant_shape, "width");
+    if (variant_shape_width == NULL || !cJSON_IsNumber(variant_shape_width)) {
+        log_error("Failed to parse config file for animation variant '{s}/{s}': shape.width must be a number", anim->base_asset_id, anim->variant);
+        cJSON_Delete(config_json);
+        return 1;
+    }
+    anim->columns = (size_t) cJSON_GetNumberValue(variant_shape_width);
+
+    cJSON *variant_shape_height = cJSON_GetObjectItem(variant_shape, "height");
+    if (variant_shape_height == NULL || !cJSON_IsNumber(variant_shape_height)) {
+        log_error("Failed to parse config file for animation variant '{s}/{s}': shape.height must be a number", anim->base_asset_id, anim->variant);
+        cJSON_Delete(config_json);
+        return 1;
+    }
+    anim->rows = (size_t) cJSON_GetNumberValue(variant_shape_height);
 
     cJSON *variant_textures = cJSON_GetObjectItem(variant_config, "textures");
     if (variant_textures == NULL || !cJSON_IsArray(variant_textures)) {
@@ -203,6 +225,8 @@ animation animation_create(asset_manager_ctx ctx, const char *asset_id, const ch
     anim->asset_mgr = ctx;
     anim->texture_width = -1;
     anim->texture_height = -1;
+    anim->columns = 0;
+    anim->rows = 0;
     anim->start = 0;
     anim->steps = 0;
     anim->interval = 0;

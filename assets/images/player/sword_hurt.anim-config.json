@@ -1,102 +1,118 @@
 {
     "down": {
+        "interval": 150,
+        "shape": {
+            "width": 4,
+            "height": 4
+        },
         "textures": [
             {
-                "prefix": "animation21",
-                "offset_x": 0,
-                "offset_y": 0
+                "prefix": "animation41",
+                "offset_x": 1,
+                "offset_y": 2
             },
             {
                 "prefix": "animation22",
-                "offset_x": 1,
-                "offset_y": 0
+                "offset_x": 2,
+                "offset_y": 1
             },
             {
-                "prefix": "animation41",
-                "offset_x": 0,
+                "prefix": "animation21",
+                "offset_x": 1,
                 "offset_y": 1
             },
             {
                 "prefix": "animation42",
-                "offset_x": 1,
-                "offset_y": 1
+                "offset_x": 2,
+                "offset_y": 2
             }
-        ],
-        "interval": 150
+        ]
     },
     "left": {
+        "interval": 150,
+        "shape": {
+            "width": 4,
+            "height": 4
+        },
         "textures": [
             {
                 "prefix": "animation101",
-                "offset_x": 0,
-                "offset_y": 0
+                "offset_x": 1,
+                "offset_y": 1
             },
             {
                 "prefix": "animation102",
-                "offset_x": 1,
-                "offset_y": 0
+                "offset_x": 2,
+                "offset_y": 1
             },
             {
                 "prefix": "animation121",
-                "offset_x": 0,
-                "offset_y": 1
+                "offset_x": 1,
+                "offset_y": 2
             },
             {
                 "prefix": "animation122",
-                "offset_x": 1,
-                "offset_y": 1
+                "offset_x": 2,
+                "offset_y": 2
             }
-        ],
-        "interval": 150
+        ]
     },
     "right": {
+        "interval": 150,
+        "shape": {
+            "width": 4,
+            "height": 4
+        },
         "textures": [
             {
+                "prefix": "animation202",
+                "offset_x": 2,
+                "offset_y": 2
+            },
+            {
                 "prefix": "animation181",
-                "offset_x": 0,
-                "offset_y": 0
+                "offset_x": 1,
+                "offset_y": 1
             },
             {
                 "prefix": "animation182",
-                "offset_x": 1,
-                "offset_y": 0
+                "offset_x": 2,
+                "offset_y": 1
             },
             {
                 "prefix": "animation201",
-                "offset_x": 0,
-                "offset_y": 1
-            },
-            {
-                "prefix": "animation202",
                 "offset_x": 1,
-                "offset_y": 1
+                "offset_y": 2
             }
-        ],
-        "interval": 150
+        ]
     },
     "up": {
+        "interval": 150,
+        "shape": {
+            "width": 4,
+            "height": 4
+        },
         "textures": [
             {
-                "prefix": "animation261",
-                "offset_x": 0,
-                "offset_y": 0
-            },
-            {
                 "prefix": "animation262",
-                "offset_x": 1,
-                "offset_y": 0
-            },
-            {
-                "prefix": "animation281",
-                "offset_x": 0,
+                "offset_x": 2,
                 "offset_y": 1
             },
             {
                 "prefix": "animation282",
+                "offset_x": 2,
+                "offset_y": 2
+            },
+            {
+                "prefix": "animation261",
                 "offset_x": 1,
                 "offset_y": 1
+            },
+            {
+                "prefix": "animation281",
+                "offset_x": 1,
+                "offset_y": 2
             }
-        ],
-        "interval": 150
+        ]
     }
 }

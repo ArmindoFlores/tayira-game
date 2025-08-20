@@ -1,0 +1,198 @@
+{
+    "down": {
+        "interval": 150,
+        "shape": {
+            "width": 4,
+            "height": 4
+        },
+        "textures": [
+            {
+                "prefix": "animation67",
+                "offset_x": 3,
+                "offset_y": 2
+            },
+            {
+                "prefix": "animation65",
+                "offset_x": 1,
+                "offset_y": 2
+            },
+            {
+                "prefix": "animation35",
+                "offset_x": 3,
+                "offset_y": 1
+            },
+            {
+                "prefix": "animation97",
+                "offset_x": 1,
+                "offset_y": 3
+            },
+            {
+                "prefix": "animation33",
+                "offset_x": 1,
+                "offset_y": 1
+            },
+            {
+                "prefix": "animation98",
+                "offset_x": 2,
+                "offset_y": 3
+            },
+            {
+                "prefix": "animation32",
+                "offset_x": 0,
+                "offset_y": 1
+            },
+            {
+                "prefix": "animation66",
+                "offset_x": 2,
+                "offset_y": 2
+            },
+            {
+                "prefix": "animation34",
+                "offset_x": 2,
+                "offset_y": 1
+            }
+        ]
+    },
+    "left": {
+        "interval": 150,
+        "shape": {
+            "width": 4,
+            "height": 4
+        },
+        "textures": [
+            {
+                "prefix": "animation193",
+                "offset_x": 1,
+                "offset_y": 2
+            },
+            {
+                "prefix": "animation161",
+                "offset_x": 1,
+                "offset_y": 1
+            },
+            {
+                "prefix": "animation162",
+                "offset_x": 2,
+                "offset_y": 1
+            },
+            {
+                "prefix": "animation192",
+                "offset_x": 0,
+                "offset_y": 2
+            },
+            {
+                "prefix": "animation194",
+                "offset_x": 2,
+                "offset_y": 2
+            },
+            {
+                "prefix": "animation160",
+                "offset_x": 0,
+                "offset_y": 1
+            }
+        ]
+    },
+    "right": {
+        "interval": 150,
+        "shape": {
+            "width": 4,
+            "height": 4
+        },
+        "textures": [
+            {
+                "prefix": "animation288",
+                "offset_x": 0,
+                "offset_y": 1
+            },
+            {
+                "prefix": "animation320",
+                "offset_x": 0,
+                "offset_y": 2
+            },
+            {
+                "prefix": "animation323",
+                "offset_x": 3,
+                "offset_y": 2
+            },
+            {
+                "prefix": "animation291",
+                "offset_x": 3,
+                "offset_y": 1
+            },
+            {
+                "prefix": "animation321",
+                "offset_x": 1,
+                "offset_y": 2
+            },
+            {
+                "prefix": "animation322",
+                "offset_x": 2,
+                "offset_y": 2
+            },
+            {
+                "prefix": "animation289",
+                "offset_x": 1,
+                "offset_y": 1
+            },
+            {
+                "prefix": "animation290",
+                "offset_x": 2,
+                "offset_y": 1
+            }
+        ]
+    },
+    "up": {
+        "interval": 150,
+        "shape": {
+            "width": 4,
+            "height": 4
+        },
+        "textures": [
+            {
+                "prefix": "animation449",
+                "offset_x": 1,
+                "offset_y": 2
+            },
+            {
+                "prefix": "animation385",
+                "offset_x": 1,
+                "offset_y": 0
+            },
+            {
+                "prefix": "animation448",
+                "offset_x": 0,
+                "offset_y": 2
+            },
+            {
+                "prefix": "animation417",
+                "offset_x": 1,
+                "offset_y": 1
+            },
+            {
+                "prefix": "animation418",
+                "offset_x": 2,
+                "offset_y": 1
+            },
+            {
+                "prefix": "animation416",
+                "offset_x": 0,
+                "offset_y": 1
+            },
+            {
+                "prefix": "animation419",
+                "offset_x": 3,
+                "offset_y": 1
+            },
+            {
+                "prefix": "animation450",
+                "offset_x": 2,
+                "offset_y": 2
+            },
+            {
+                "prefix": "animation386",
+                "offset_x": 2,
+                "offset_y": 0
+            }
+        ]
+    }
+}

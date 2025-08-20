@@ -3,6 +3,7 @@ import argparse
 import json
 import os
 import shutil
+import math
 
 
 def load_config(files):
@@ -23,12 +24,6 @@ def ext(filename):
     if len(parts) == 1:
         return ""
     return "."+parts[-1]
-
-def texture_value(value, interval):
-    del value["start_x"]
-    del value["xy"]
-    value["interval"] = interval
-    return value
 
 def convert(args):
     files = os.listdir(args.asset_directory)
@@ -52,9 +47,8 @@ def convert(args):
         for tile in tileset["tiles"]:
             animations[tile["id"]] = tile
 
-    tiles_per_anim = 4  # FIXME: don't hard-code this
-    anim_shape = (2, 2)  # FIXME: don't hard-code this
-    directions = ("down", "left", "right", "up")  # FIXME: don't hard-code this
+    anim_shape = tuple(map(int, args.shape.split(",")))
+    animation_names = args.animation_names.split(",")
 
     gathered_assets = {}
     for layer in layers_to_convert:
@@ -62,7 +56,11 @@ def convert(args):
             for tileset in config_contents["tilesets"]:
                 if not tileset_has_tile(tileset, gid): continue
 
-                key = (tileset["name"].lower(), tileset["image"])
+                asset_name = tileset["name"].lower()
+                if args.replace is not None:
+                    old, new = args.replace.split(",")
+                    asset_name = asset_name.replace(old, new)
+                key = (asset_name, tileset["image"])
                 gathered_assets.setdefault(key, {
                     "texture": {
                         "filetype": ext(tileset["image"]),
@@ -75,8 +73,9 @@ def convert(args):
                 x_step = tileset["tilewidth"] + tileset["spacing"]
                 y_step = tileset["tileheight"] + tileset["spacing"]
 
-                textures = {}
-                for k, animation in enumerate(tileset["tiles"]):
+                animations = {}
+                correspondance = {}
+                for animation in tileset["tiles"]:
                     interval = None
                     for i, tile in enumerate(animation["animation"]):
                         tile_w = tile["tileid"] * x_step
@@ -84,25 +83,17 @@ def convert(args):
                         tile_y = tile_w // tileset["imagewidth"] * y_step
 
                         x_norm = tile_x / x_step
-                        actual_y_norm = y_norm = tile_y / y_step
+                        y_norm = tile_y / y_step
 
-                        if y_norm not in textures:
-                            # Search for a close enough texture
-                            if y_norm - 1 in textures:
-                                actual_y_norm -= 1
-                            else:
-                                textures.setdefault(y_norm, { "start_x": x_norm, "xy": set(), "textures": [] })
-                        
-                        start_x = textures[actual_y_norm]["start_x"]
-                        new_x = int(x_norm - start_x)
-                        new_y = int(y_norm - actual_y_norm)
-                        if new_x < anim_shape[0] and (new_x, new_y) not in textures[actual_y_norm]["xy"]:
-                            textures[actual_y_norm]["textures"].append({
-                                "prefix": f"animation{animation['id']}",
-                                "offset_x": new_x,
-                                "offset_y": new_y,
-                            })
-                            textures[actual_y_norm]["xy"].add((new_x, new_y))
+                        x_index = math.floor(x_norm / anim_shape[0])
+                        y_index = math.floor(y_norm / anim_shape[1])
+
+                        if x_index == 0:
+                            animations.setdefault(y_index, set())
+                            correspondance.setdefault(y_index, {})
+
+                            correspondance[y_index][f"animation{animation['id']}"] = (int(x_norm - x_index * anim_shape[0]), int(y_norm - y_index * anim_shape[1]))
+                            animations[y_index].add(f"animation{animation['id']}")
 
                         gathered_assets[key]["texture"]["textures"][f"animation{animation['id']}-{i}"] = {
                             "width": tileset["tilewidth"],
@@ -113,9 +104,18 @@ def convert(args):
                         interval = tile["duration"]
 
                 gathered_assets[key]["anim"] = {
-                    directions[i]: content for i, content in enumerate([
-                        texture_value(value, interval) for value in textures.values()
-                    ]) if len(textures.values()) == len(directions)
+                    animation_names[i]: {
+                        "interval": interval,
+                        "shape": {
+                            "width": anim_shape[0],
+                            "height": anim_shape[1],
+                        },
+                        "textures": [{
+                            "prefix": prefix,
+                            "offset_x": correspondance[y_index][prefix][0],
+                            "offset_y": correspondance[y_index][prefix][1],
+                        } for prefix in animations[y_index]]
+                    } for i, y_index in enumerate(animations.keys())
                 }
 
 
@@ -176,6 +176,9 @@ if __name__ == "__main__":
     convert_parser.add_argument("output_directory", help="where to place the converted files")
     convert_parser.add_argument("--layers", "-l", help="a list of comma-separated layers to convert")
     convert_parser.add_argument("--config", "-c", help="path to the base asset configuration file")
+    convert_parser.add_argument("--shape", "-s", help="shape of each animation group", default="4,4")
+    convert_parser.add_argument("--animation-names", "-a", help="names of each animation group", default="down,left,right,up")
+    convert_parser.add_argument("--replace", "-r", help="replace a string in the texture name with another")
 
     info_parser = subparsers.add_parser("info", help="show information about assets")
     info_parser.set_defaults(cmd="info")

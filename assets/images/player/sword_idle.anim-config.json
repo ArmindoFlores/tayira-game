@@ -1,102 +1,118 @@
 {
     "down": {
+        "interval": 150,
+        "shape": {
+            "width": 4,
+            "height": 4
+        },
         "textures": [
             {
-                "prefix": "animation49",
-                "offset_x": 0,
-                "offset_y": 0
-            },
-            {
-                "prefix": "animation50",
-                "offset_x": 1,
-                "offset_y": 0
-            },
-            {
                 "prefix": "animation97",
-                "offset_x": 0,
+                "offset_x": 1,
+                "offset_y": 2
+            },
+            {
+                "prefix": "animation49",
+                "offset_x": 1,
                 "offset_y": 1
             },
             {
                 "prefix": "animation98",
-                "offset_x": 1,
+                "offset_x": 2,
+                "offset_y": 2
+            },
+            {
+                "prefix": "animation50",
+                "offset_x": 2,
                 "offset_y": 1
             }
-        ],
-        "interval": 150
+        ]
     },
     "left": {
+        "interval": 150,
+        "shape": {
+            "width": 4,
+            "height": 4
+        },
         "textures": [
             {
+                "prefix": "animation290",
+                "offset_x": 2,
+                "offset_y": 2
+            },
+            {
                 "prefix": "animation241",
-                "offset_x": 0,
-                "offset_y": 0
+                "offset_x": 1,
+                "offset_y": 1
             },
             {
                 "prefix": "animation242",
-                "offset_x": 1,
-                "offset_y": 0
+                "offset_x": 2,
+                "offset_y": 1
             },
             {
                 "prefix": "animation289",
-                "offset_x": 0,
-                "offset_y": 1
-            },
-            {
-                "prefix": "animation290",
                 "offset_x": 1,
-                "offset_y": 1
+                "offset_y": 2
             }
-        ],
-        "interval": 150
+        ]
     },
     "right": {
+        "interval": 150,
+        "shape": {
+            "width": 4,
+            "height": 4
+        },
         "textures": [
             {
-                "prefix": "animation433",
-                "offset_x": 0,
-                "offset_y": 0
+                "prefix": "animation481",
+                "offset_x": 1,
+                "offset_y": 2
             },
             {
                 "prefix": "animation434",
-                "offset_x": 1,
-                "offset_y": 0
-            },
-            {
-                "prefix": "animation481",
-                "offset_x": 0,
+                "offset_x": 2,
                 "offset_y": 1
             },
             {
                 "prefix": "animation482",
+                "offset_x": 2,
+                "offset_y": 2
+            },
+            {
+                "prefix": "animation433",
                 "offset_x": 1,
                 "offset_y": 1
             }
-        ],
-        "interval": 150
+        ]
     },
     "up": {
+        "interval": 150,
+        "shape": {
+            "width": 4,
+            "height": 4
+        },
         "textures": [
             {
+                "prefix": "animation674",
+                "offset_x": 2,
+                "offset_y": 2
+            },
+            {
                 "prefix": "animation625",
-                "offset_x": 0,
-                "offset_y": 0
+                "offset_x": 1,
+                "offset_y": 1
             },
             {
                 "prefix": "animation626",
-                "offset_x": 1,
-                "offset_y": 0
+                "offset_x": 2,
+                "offset_y": 1
             },
             {
                 "prefix": "animation673",
-                "offset_x": 0,
-                "offset_y": 1
-            },
-            {
-                "prefix": "animation674",
                 "offset_x": 1,
-                "offset_y": 1
+                "offset_y": 2
             }
-        ],
-        "interval": 150
+        ]
     }
 }
