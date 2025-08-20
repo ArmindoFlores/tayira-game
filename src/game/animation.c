@@ -162,7 +162,6 @@ static int load_animation_config(animation anim) {
         if (texture_prefix_length > largest_texture_prefix) {
             texture_prefix = new_texture_prefix;
             largest_texture_prefix = texture_prefix_length;
-            log_debug("New largest: {s}", texture_prefix);
         }
 
         cJSON *texture_offset_x = cJSON_GetObjectItem(variant_texture, "offset_x");

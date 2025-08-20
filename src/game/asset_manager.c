@@ -51,7 +51,7 @@ static int load_inner_asset_config(asset_manager_ctx ctx, cJSON *root_asset_conf
     char *asset_config_string = utils_read_whole_file(asset_config_path);
     free(asset_config_path);
     if (asset_config_string == NULL) {
-        log_error("Failed to read asset config file at '{s}/{s}.{s}'", ASSETS_PATH_PREFIX, partial_asset_config_path, ASSET_CONFIG_FILE_EXT);
+        log_error("Failed to read asset config file at '{s}{s}{s}'", ASSETS_PATH_PREFIX, partial_asset_config_path, ASSET_CONFIG_FILE_EXT);
         return 1;
     }
 

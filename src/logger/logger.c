@@ -303,7 +303,9 @@ static int print_builtin_segment(FILE *stream, braced *segment, va_list args) {
             break;
             
         case 's':
-            fprintf(stream, "%s", va_arg(args, char*));
+            const char *string = va_arg(args, char*);
+            if (string == NULL) fprintf(stream, "(null)");
+            else fprintf(stream, "%s", string);
             break;
             
         case 'p':

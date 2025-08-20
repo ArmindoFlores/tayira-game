@@ -53,7 +53,7 @@ game_ctx game_context_init() {
         return NULL;
     }
 
-    game->base_font_16 = font_create(game->asset_mgr, "font-regular-16", 2, 16);
+    game->base_font_16 = font_create(game->asset_mgr, "font-yoster-island-12", 2, 16);
     if (game->base_font_16 == NULL) {
         game_context_cleanup(game);
         return NULL;

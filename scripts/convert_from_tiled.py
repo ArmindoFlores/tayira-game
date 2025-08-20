@@ -56,7 +56,7 @@ def convert(args):
             for tileset in config_contents["tilesets"]:
                 if not tileset_has_tile(tileset, gid): continue
 
-                asset_name = tileset["name"].lower()
+                asset_name = tileset["name"].lower().replace(" ", "")
                 if args.replace is not None:
                     old, new = args.replace.split(",")
                     asset_name = asset_name.replace(old, new)

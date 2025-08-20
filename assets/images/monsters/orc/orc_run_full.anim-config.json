@@ -13,9 +13,9 @@
                 "offset_y": 2
             },
             {
-                "prefix": "animation65",
+                "prefix": "animation1",
                 "offset_x": 1,
-                "offset_y": 2
+                "offset_y": 0
             },
             {
                 "prefix": "animation33",
@@ -23,14 +23,14 @@
                 "offset_y": 1
             },
             {
-                "prefix": "animation66",
-                "offset_x": 2,
-                "offset_y": 2
-            },
-            {
                 "prefix": "animation2",
                 "offset_x": 2,
                 "offset_y": 0
+            },
+            {
+                "prefix": "animation66",
+                "offset_x": 2,
+                "offset_y": 2
             },
             {
                 "prefix": "animation34",
@@ -38,9 +38,9 @@
                 "offset_y": 1
             },
             {
-                "prefix": "animation1",
+                "prefix": "animation65",
                 "offset_x": 1,
-                "offset_y": 0
+                "offset_y": 2
             }
         ]
     },
@@ -53,9 +53,24 @@
         },
         "textures": [
             {
-                "prefix": "animation162",
-                "offset_x": 2,
+                "prefix": "animation193",
+                "offset_x": 1,
+                "offset_y": 2
+            },
+            {
+                "prefix": "animation161",
+                "offset_x": 1,
                 "offset_y": 1
+            },
+            {
+                "prefix": "animation195",
+                "offset_x": 3,
+                "offset_y": 2
+            },
+            {
+                "prefix": "animation194",
+                "offset_x": 2,
+                "offset_y": 2
             },
             {
                 "prefix": "animation130",
@@ -68,24 +83,9 @@
                 "offset_y": 0
             },
             {
-                "prefix": "animation195",
-                "offset_x": 3,
-                "offset_y": 2
-            },
-            {
-                "prefix": "animation161",
-                "offset_x": 1,
-                "offset_y": 1
-            },
-            {
-                "prefix": "animation194",
+                "prefix": "animation162",
                 "offset_x": 2,
-                "offset_y": 2
-            },
-            {
-                "prefix": "animation193",
-                "offset_x": 1,
-                "offset_y": 2
+                "offset_y": 1
             }
         ]
     },
@@ -98,14 +98,9 @@
         },
         "textures": [
             {
-                "prefix": "animation321",
+                "prefix": "animation257",
                 "offset_x": 1,
-                "offset_y": 2
-            },
-            {
-                "prefix": "animation322",
-                "offset_x": 2,
-                "offset_y": 2
+                "offset_y": 0
             },
             {
                 "prefix": "animation290",
@@ -113,19 +108,24 @@
                 "offset_y": 1
             },
             {
-                "prefix": "animation257",
+                "prefix": "animation321",
                 "offset_x": 1,
-                "offset_y": 0
-            },
-            {
-                "prefix": "animation258",
-                "offset_x": 2,
-                "offset_y": 0
+                "offset_y": 2
             },
             {
                 "prefix": "animation289",
                 "offset_x": 1,
                 "offset_y": 1
+            },
+            {
+                "prefix": "animation322",
+                "offset_x": 2,
+                "offset_y": 2
+            },
+            {
+                "prefix": "animation258",
+                "offset_x": 2,
+                "offset_y": 0
             }
         ]
     },
@@ -143,16 +143,6 @@
                 "offset_y": 1
             },
             {
-                "prefix": "animation386",
-                "offset_x": 2,
-                "offset_y": 0
-            },
-            {
-                "prefix": "animation450",
-                "offset_x": 2,
-                "offset_y": 2
-            },
-            {
                 "prefix": "animation417",
                 "offset_x": 1,
                 "offset_y": 1
@@ -163,8 +153,18 @@
                 "offset_y": 2
             },
             {
+                "prefix": "animation450",
+                "offset_x": 2,
+                "offset_y": 2
+            },
+            {
                 "prefix": "animation385",
                 "offset_x": 1,
+                "offset_y": 0
+            },
+            {
+                "prefix": "animation386",
+                "offset_x": 2,
                 "offset_y": 0
             }
         ]

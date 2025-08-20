@@ -55,3 +55,9 @@ dkms.conf
 *.dwo
 
 tayira
+
+# python files
+*.pyc
+*.pyd
+__pycache__
+.venv
