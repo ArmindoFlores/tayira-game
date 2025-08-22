@@ -8,6 +8,7 @@ typedef struct map_s *map;
 
 map map_create(asset_manager_ctx, const char *map_id);
 int map_render(map, renderer_ctx);
+int map_occupied_at(map, int x, int y);
 int map_load(map);
 int map_unload(map);
 void map_destroy(map);

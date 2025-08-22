@@ -44,11 +44,11 @@ game_ctx game_context_init() {
     }
 
     game->start_move_pos = 0;
-    game->pixels_per_keypress = 8;
+    game->pixels_per_keypress = 16;
     game->player_moving = 0;
     game->held_direction = DIRECTION_NONE;
     game->player_direction = DIRECTION_RIGHT;
-    game->player_position = (position_vec) { .x = 48.0f, .y = 16.0f };
+    game->player_position = (position_vec) { .x = 23.5 * 16.0f, .y = 13.5 * 16.0f };
     game->debug_info = 0;
     game->asset_mgr = asset_manager_init();
     if (game->asset_mgr == NULL) {
@@ -149,8 +149,21 @@ static void game_render(game_ctx game, renderer_ctx ctx, double, double t) {
             default: break;
         } 
     }
+
+    position_vec actual_position = {
+        .x = game->player_position.x,
+        .y = game->player_position.y - 4
+    };
+
     if (anim_to_draw != NULL) {
-        animation_render(anim_to_draw, ctx, (int) game->player_position.x, (int) game->player_position.y, t, RENDER_ANCHOR_TOP | RENDER_ANCHOR_LEFT);
+        animation_render(
+            anim_to_draw, 
+            ctx, 
+            (int) actual_position.x, 
+            (int) actual_position.y, 
+            t, 
+            RENDER_ANCHOR_CENTER
+        );
     }
 
     if (game->debug_info) {
@@ -179,8 +192,11 @@ static void game_render(game_ctx game, renderer_ctx ctx, double, double t) {
         else {
             log_warning("Failed to write to buffer");
         }
-        if (anim_to_draw != NULL) {
-            animation_render_bounds(anim_to_draw, ctx, (int) game->player_position.x, (int) game->player_position.y, RENDER_ANCHOR_CENTER);
+        for (int y = 0; y < 20; y++) {
+            renderer_draw_line(ctx, 0.0f, y * 16.0f, 30.0f * 16.0f, y * 16.0f, (color_rgb) { .r = 1.0f, .g = 1.0f, .b = 1.0f }, 1);
+        }
+        for (int x = 0; x < 30; x++) {
+            renderer_draw_line(ctx, x * 16.0f, 0.0f, x * 16.0f, 20.0f * 16.0f, (color_rgb) { .r = 1.0f, .g = 1.0f, .b = 1.0f }, 1);
         }
     }
 }
@@ -195,8 +211,31 @@ static void game_step(game_ctx game, double dt, double t) {
 
     if (game->player_moving == 0 && game->held_direction != DIRECTION_NONE) {
         game->player_direction = game->held_direction;
-        game->player_moving = 1;
-        game->start_move_pos = (int) (game->player_direction == DIRECTION_DOWN || game->player_direction == DIRECTION_UP ? game->player_position.y : game->player_position.x);
+
+        int next_x = game->player_position.x;
+        int next_y = game->player_position.y;
+        
+        switch (game->player_direction) {
+            case DIRECTION_DOWN:
+                next_y += game->pixels_per_keypress;
+                break;
+            case DIRECTION_UP:
+                next_y -= game->pixels_per_keypress;
+                break;
+            case DIRECTION_LEFT:
+                next_x -= game->pixels_per_keypress;
+                break;
+            case DIRECTION_RIGHT:
+                next_x += game->pixels_per_keypress;
+                break;            
+            default:
+                break;
+        }
+
+        if (!map_occupied_at(game->dungeon_map, next_x / 16, next_y / 16)) {
+            game->player_moving = 1;
+            game->start_move_pos = (int) (game->player_direction == DIRECTION_DOWN || game->player_direction == DIRECTION_UP ? game->player_position.y : game->player_position.x);
+        }
     } 
 
     if (!game->player_moving) return;

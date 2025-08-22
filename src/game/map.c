@@ -29,6 +29,8 @@ struct map_s {
     hashtable grids;
     hashtable texture_cache;
 
+    int *collision_grid;
+
     int width, height;
     int tilewidth, tileheight;
     int player_layer;
@@ -50,6 +52,29 @@ static char *get_map_path(const char *partial_path) {
     strcat(fullpath, partial_path);
     strcat(fullpath, MAP_CONFIG_FILE_EXT);
     return fullpath;
+}
+
+static int populate_grid(cJSON *layer_map, int *grid, int *largest_texture_id) {
+    size_t i = 0;
+    cJSON *row = NULL, *col = NULL;
+    cJSON_ArrayForEach(row, layer_map) {
+        if (row == NULL || !cJSON_IsArray(row)) {
+            log_error("Failed to parse map config for map '{s}': each map row must be an array");
+            return 1;
+        }
+        cJSON_ArrayForEach(col, row) {
+            if (col == NULL || !cJSON_IsNumber(col)) {
+                log_error("Failed to parse map config for map '{s}': each map cell must be a number");
+                return 1;
+            }
+            int id = (int) cJSON_GetNumberValue(col);
+            grid[i++] = id;
+            if (id > *largest_texture_id) {
+                *largest_texture_id = id;
+            }
+        }
+    }
+    return 0;
 }
 
 static int load_inner_map_config(map m, const char *partial_path) {
@@ -233,20 +258,43 @@ static int load_inner_map_config(map m, const char *partial_path) {
         }
 
         // TODO: handle these separately
-        if (cJSON_IsTrue(layer_collisions) || cJSON_IsTrue(layer_vision) || cJSON_IsTrue(layer_entities)) {
+        if (cJSON_IsTrue(layer_vision) || cJSON_IsTrue(layer_entities)) {
+            continue;
+        }
+
+        int *grid = (int*) calloc(m->width * m->height, sizeof(int));
+        if (grid == NULL) {
+            log_error("Failed to allocate memory during parsing of map config");
+            cJSON_Delete(map_config);
+            return 1;
+        }
+
+        if (cJSON_IsTrue(layer_collisions)) {
+            if (m->collision_grid) {
+                log_warning("More than on collision grid defined");
+                continue;
+            }
+
+            if (populate_grid(layer_map, grid, &largest_texture_id) != 0) {
+                cJSON_Delete(map_config);
+                return 1;
+            }
+
+            m->collision_grid = grid;
             continue;
         }
 
         map_grid_info *grid_info = (map_grid_info *) malloc(sizeof(map_grid_info));
-        grid_info->layer = (int) cJSON_GetNumberValue(layer_layer);
-        grid_info->transparent = (int) cJSON_IsTrue(layer_transparent);
-        grid_info->grid = (int*) calloc(m->width * m->height, sizeof(int));
-        if (grid_info->grid == NULL) {
+        if (grid_info == NULL) {
             log_error("Failed to allocate memory during parsing of map config");
+            free(grid);
             cJSON_Delete(map_config);
-            free(grid_info);
             return 1;
         }
+
+        grid_info->layer = (int) cJSON_GetNumberValue(layer_layer);
+        grid_info->transparent = (int) cJSON_IsTrue(layer_transparent);
+        grid_info->grid = grid;
 
         if (hashtable_set(m->grids, layer->string, grid_info) != 0) {
             log_error("Failed to allocate memory during parsing of map config");
@@ -256,32 +304,15 @@ static int load_inner_map_config(map m, const char *partial_path) {
             return 1;
         }
 
-        size_t i = 0;
-        cJSON *row = NULL, *col = NULL;
-        cJSON_ArrayForEach(row, layer_map) {
-            if (row == NULL || !cJSON_IsArray(row)) {
-                log_error("Failed to parse map config for map '{s}': each map row must be an array");
-                cJSON_Delete(map_config);
-                return 1;
-            }
-            cJSON_ArrayForEach(col, row) {
-                if (col == NULL || !cJSON_IsNumber(col)) {
-                    log_error("Failed to parse map config for map '{s}': each map cell must be a number");
-                    cJSON_Delete(map_config);
-                    return 1;
-                }
-                int id = (int) cJSON_GetNumberValue(col);
-                grid_info->grid[i++] = id;
-                if (id > largest_texture_id) {
-                    largest_texture_id = id;
-                }
-            }
+        if (populate_grid(layer_map, grid, &largest_texture_id) != 0) {
+            cJSON_Delete(map_config);
+            return 1;
         }
     }
 
     cJSON_Delete(map_config);
     
-    m->texture_id_buffer_size = utils_digit_length((size_t) largest_texture_id);
+    m->texture_id_buffer_size = utils_digit_length((size_t) largest_texture_id) + 1;
     m->texture_id_buffer = (char*) calloc(m->texture_id_buffer_size, sizeof(char));
     if (m->texture_id_buffer == NULL) {
         return 1;
@@ -291,7 +322,7 @@ static int load_inner_map_config(map m, const char *partial_path) {
 }
 
 static int load_map_config(map m) {
-    if (m->grids != NULL || m->asset_info != NULL) return 0;
+    if (m->grids != NULL || m->asset_info != NULL || m->collision_grid != NULL) return 0;
 
     // Read maps list
     char *config_contents = utils_read_whole_file("assets/maps.json");
@@ -483,6 +514,13 @@ int map_render(map m, renderer_ctx ctx) {
     return 0;
 }
 
+int map_occupied_at(map m, int x, int y) {
+    log_debug("Checking occupance at ({d}, {d})", x, y);
+    if (m->collision_grid == NULL) return 0;
+    if (x < 0 || y < 0 || x >= m->width || y >= m->height) return 1;
+    return m->collision_grid[x + y * m->width];
+}
+
 int map_load(map m) {
     return load_map_config(m);
 }
@@ -506,16 +544,20 @@ iteration_result destroy_grid(const hashtable_entry *entry) {
 }
 
 int map_unload(map m) {
+    free(m->collision_grid);
+    m->collision_grid = NULL;
     if (m->asset_info != NULL) {
         struct destroy_asset_info_args_s destroy_asset_info_args = {
             .ctx = m->asset_mgr
         };
         hashtable_foreach_args(m->asset_info, destroy_asset_info, &destroy_asset_info_args);
         hashtable_destroy(m->asset_info);
+        m->asset_info = NULL;
     }
     if (m->grids != NULL) {
         hashtable_foreach(m->grids, destroy_grid);
         hashtable_destroy(m->grids);
+        m->grids = NULL;
     }
     return 0;
 }
