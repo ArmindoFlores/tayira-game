@@ -18,12 +18,11 @@ def get_layer_map(layer, binary):
         layer_map.append([t if t == 0 or not binary else 1 for t in layer["data"][start:start+layer["width"]]])
     return layer_map
 
-def get_layer_property(layer, property_name):
-    if "properties" not in layer:
-        return None
-    for property_value in layer["properties"]:
-        if property_value["name"] == property_name:
-            return property_value["value"]
+def get_custom_property(obj, property_name):
+    properties = obj.get("properties", [])
+    for property_obj in properties:
+        if property_obj["name"] == property_name:
+            return property_obj["value"]
     return None
 
 def tileset_has_tile(tileset, tile_id):
@@ -38,12 +37,15 @@ def main(args):
     with open(args.map, "r") as f:
         map_contents = json.load(f)
 
+    player_layer = get_custom_property(map_contents, "player_layer")
+
     layers = {}
     assets = {}
     used_ids = set()
     for i, layer in enumerate(map_contents["layers"]):
-        is_collisions = get_layer_property(layer, "collisions") is True
-        is_vision = get_layer_property(layer, "vision") is True
+        transparent = get_custom_property(layer, "transparent") is True
+        is_collisions = get_custom_property(layer, "collisions") is True
+        is_vision = get_custom_property(layer, "vision") is True
         is_binary = is_vision or is_collisions
         layer_map = get_layer_map(layer, is_binary)
         if not is_binary:
@@ -55,7 +57,8 @@ def main(args):
             "layer": i,
             "collisions": is_collisions,
             "vision": is_vision,
-            "entities": get_layer_property(layer, "objects") is True
+            "entities": get_custom_property(layer, "objects") is True,
+            "transparent": transparent
         }
         layers[layer["name"]] = layer_info
 
@@ -69,15 +72,19 @@ def main(args):
     project_dir = os.path.dirname(os.path.dirname(__file__))
     relative_path = os.path.relpath(os.path.abspath(args.output_directory), project_dir)
 
+    map_info = {
+        "width": map_contents["width"],
+        "height": map_contents["height"],
+        "tilewidth": map_contents["tilewidth"],
+        "tileheight": map_contents["tileheight"],
+        "layers": layers,
+        "assets": assets,
+    }
+    if player_layer is not None:
+        map_info["player_layer"] = player_layer
+    
     with open(os.path.join("..", relative_path, args.name + ".map-config.json"), "w") as f:
-        json.dump({
-            "width": map_contents["width"],
-            "height": map_contents["height"],
-            "tilewidth": map_contents["tilewidth"],
-            "tileheight": map_contents["tileheight"],
-            "layers": layers,
-            "assets": assets,
-        }, f)
+        json.dump(map_info, f)
 
     return 0
 

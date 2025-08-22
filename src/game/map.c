@@ -14,6 +14,7 @@ typedef struct map_asset_info {
 typedef struct map_grid_info {
     int layer;
     int *grid;
+    int transparent;
 } map_grid_info;
 
 typedef struct asset_and_min_id {
@@ -30,6 +31,7 @@ struct map_s {
 
     int width, height;
     int tilewidth, tileheight;
+    int player_layer;
 
     char *map_id;
     char *texture_id_buffer;
@@ -83,6 +85,7 @@ static int load_inner_map_config(map m, const char *partial_path) {
     cJSON *map_tileheight = cJSON_GetObjectItem(map_config, "tileheight");
     cJSON *map_layers = cJSON_GetObjectItem(map_config, "layers");
     cJSON *map_assets = cJSON_GetObjectItem(map_config, "assets");
+    cJSON *map_player_layer = cJSON_GetObjectItem(map_config, "player_layer");
 
     if (map_width == NULL || !cJSON_IsNumber(map_width)) {
         log_error("Failed to parse map config for map '{s}': width must be a number", m->map_id);
@@ -124,6 +127,10 @@ static int load_inner_map_config(map m, const char *partial_path) {
     m->height = (int) cJSON_GetNumberValue(map_height);
     m->tilewidth = (int) cJSON_GetNumberValue(map_tilewidth);
     m->tileheight = (int) cJSON_GetNumberValue(map_tileheight);
+
+    if (map_player_layer != NULL && cJSON_IsNumber(map_player_layer)) {
+        m->player_layer = (int) cJSON_GetNumberValue(map_player_layer);
+    }
 
     m->asset_info = hashtable_create();
     if (m->asset_info == NULL) {
@@ -184,6 +191,7 @@ static int load_inner_map_config(map m, const char *partial_path) {
     cJSON_ArrayForEach(layer, map_layers) {
         cJSON *layer_map = cJSON_GetObjectItem(layer, "map");
         cJSON *layer_layer = cJSON_GetObjectItem(layer, "layer");
+        cJSON *layer_transparent = cJSON_GetObjectItem(layer, "transparent");
         cJSON *layer_collisions = cJSON_GetObjectItem(layer, "collisions");
         cJSON *layer_vision = cJSON_GetObjectItem(layer, "vision");
         cJSON *layer_entities = cJSON_GetObjectItem(layer, "entities");
@@ -213,7 +221,13 @@ static int load_inner_map_config(map m, const char *partial_path) {
         }
 
         if (layer_layer == NULL || !cJSON_IsNumber(layer_layer)) {
-            log_error("Failed to parse map config for map '{s}': layer must be a boolean", m->map_id);
+            log_error("Failed to parse map config for map '{s}': layer must be a number", m->map_id);
+            cJSON_Delete(map_config);
+            return 1;
+        }
+
+        if (layer_transparent == NULL || !cJSON_IsBool(layer_transparent)) {
+            log_error("Failed to parse map config for map '{s}': transparent must be a boolean", m->map_id);
             cJSON_Delete(map_config);
             return 1;
         }
@@ -225,6 +239,7 @@ static int load_inner_map_config(map m, const char *partial_path) {
 
         map_grid_info *grid_info = (map_grid_info *) malloc(sizeof(map_grid_info));
         grid_info->layer = (int) cJSON_GetNumberValue(layer_layer);
+        grid_info->transparent = (int) cJSON_IsTrue(layer_transparent);
         grid_info->grid = (int*) calloc(m->width * m->height, sizeof(int));
         if (grid_info->grid == NULL) {
             log_error("Failed to allocate memory during parsing of map config");
@@ -315,6 +330,7 @@ map map_create(asset_manager_ctx ctx, const char *map_id) {
         return NULL;
     }
     m->asset_mgr = ctx;
+    m->player_layer = -1;
     m->map_id = utils_copy_string(map_id);
     if (m->map_id == NULL) {
         map_destroy(m);
@@ -405,7 +421,8 @@ static texture get_texture_from_id(map m, int id) {
 }
 
 struct draw_map_grid_args_s {
-    unsigned int base_layer;
+    unsigned int base_layer, *max_nonplayer_layer;
+    int transparent;
     map map;
     renderer_ctx renderer;
 };
@@ -414,13 +431,18 @@ static iteration_result draw_map_grid(const hashtable_entry* entry, void *_args)
     struct draw_map_grid_args_s *args = (struct draw_map_grid_args_s *) _args;
     map_grid_info *grid_info = (map_grid_info *) entry->value;
 
-    renderer_set_layer(args->renderer, args->base_layer + grid_info->layer);
-    if (grid_info->layer > 2) {
-        renderer_set_blend_mode(args->renderer, BLEND_MODE_TRANSPARENCY);
+    // Only draw layers with specified transparency
+    if (args->transparent != grid_info->transparent) return ITERATION_CONTINUE;
+
+    // FIXME: Instead of arbitrarily adding 100 to the layer, do something smarter
+    unsigned int real_layer = grid_info->layer;
+    if (args->map->player_layer == -1 || grid_info->layer < args->map->player_layer) {
+        if (real_layer > *args->max_nonplayer_layer) {
+            *args->max_nonplayer_layer = real_layer;
+        }
     }
-    else {
-        renderer_set_blend_mode(args->renderer, BLEND_MODE_BINARY);
-    }
+
+    renderer_set_layer(args->renderer, args->base_layer + real_layer);
     for (int row = 0; row < args->map->height; row++) {
         for (int col = 0; col < args->map->width; col++) {
             int grid_value = grid_info->grid[row * args->map->width + col];
@@ -442,15 +464,22 @@ static iteration_result draw_map_grid(const hashtable_entry* entry, void *_args)
 
 int map_render(map m, renderer_ctx ctx) {
     unsigned int base_layer = renderer_get_layer(ctx);
-    
+    unsigned int max_nonplayer_layer = 0;
     struct draw_map_grid_args_s draw_map_grid_args = {
         .base_layer = base_layer,
+        .max_nonplayer_layer = &max_nonplayer_layer,
+        .transparent = 0,
         .map = m,
         .renderer = ctx
     };
 
+    renderer_set_blend_mode(ctx, BLEND_MODE_BINARY);
+    hashtable_foreach_args(m->grids, draw_map_grid, &draw_map_grid_args);
+    draw_map_grid_args.transparent = 1;
+    renderer_set_blend_mode(ctx, BLEND_MODE_TRANSPARENCY);
     hashtable_foreach_args(m->grids, draw_map_grid, &draw_map_grid_args);
 
+    renderer_set_layer(ctx, base_layer + max_nonplayer_layer);
     return 0;
 }
 
