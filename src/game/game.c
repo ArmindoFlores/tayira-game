@@ -2,6 +2,7 @@
 #include "asset_manager.h"
 #include "animation.h"
 #include "font.h"
+#include "map.h"
 #include "logger/logger.h"
 #include "GLFW/glfw3.h"
 #include <stdlib.h>
@@ -23,6 +24,8 @@ struct game_ctx_s {
 
     animation anim_walk_down, anim_walk_up, anim_walk_right, anim_walk_left;
     animation anim_idle_down, anim_idle_up, anim_idle_right, anim_idle_left;
+
+    map dungeon_map;
 
     mtx_t lock;
 };
@@ -59,14 +62,14 @@ game_ctx game_context_init() {
         return NULL;
     }
 
-    game->anim_walk_down = animation_create(game->asset_mgr, "goblin_walk_full", "down");
-    game->anim_walk_up = animation_create(game->asset_mgr, "goblin_walk_full", "up");
-    game->anim_walk_right = animation_create(game->asset_mgr, "goblin_walk_full", "right");
-    game->anim_walk_left = animation_create(game->asset_mgr, "goblin_walk_full", "left");
-    game->anim_idle_down = animation_create(game->asset_mgr, "goblin_idle_full", "down");
-    game->anim_idle_up = animation_create(game->asset_mgr, "goblin_idle_full", "up");
-    game->anim_idle_right = animation_create(game->asset_mgr, "goblin_idle_full", "right");
-    game->anim_idle_left = animation_create(game->asset_mgr, "goblin_idle_full", "left");
+    game->anim_walk_down = animation_create(game->asset_mgr, "unarmed_walk", "down");
+    game->anim_walk_up = animation_create(game->asset_mgr, "unarmed_walk", "up");
+    game->anim_walk_right = animation_create(game->asset_mgr, "unarmed_walk", "right");
+    game->anim_walk_left = animation_create(game->asset_mgr, "unarmed_walk", "left");
+    game->anim_idle_down = animation_create(game->asset_mgr, "unarmed_idle", "down");
+    game->anim_idle_up = animation_create(game->asset_mgr, "unarmed_idle", "up");
+    game->anim_idle_right = animation_create(game->asset_mgr, "unarmed_idle", "right");
+    game->anim_idle_left = animation_create(game->asset_mgr, "unarmed_idle", "left");
     if (
         game->anim_walk_down == NULL || 
         game->anim_walk_up == NULL || 
@@ -81,8 +84,14 @@ game_ctx game_context_init() {
         return NULL;
     }
 
-    // Pre-load some textures
-    asset_manager_texture_preload(game->asset_mgr, "tiles/cobblestone_1");
+    game->dungeon_map = map_create(game->asset_mgr, "dungeon");
+    if (game->dungeon_map == NULL) {
+        game_context_cleanup(game);
+        return NULL;
+    }
+
+    // Pre-load map
+    map_load(game->dungeon_map);
     
     // Pre-load animations
     animation_load(game->anim_walk_down);
@@ -101,17 +110,7 @@ game_ctx game_context_init() {
 }
 
 static void game_render(game_ctx game, renderer_ctx ctx, double, double t) {
-    texture cobble = asset_manager_get_texture(game->asset_mgr, "tiles/cobblestone_1");
-    if (cobble != NULL) {
-        for (int x = 0; x < 45; x++) {
-            for (int y = 0; y < 30; y++) {
-                renderer_draw_texture(ctx, cobble, x * 16.0, y * 16.0);
-            }
-        }
-    }
-    else {
-        log_throttle_error(5000, "Failed to get texture!");
-    }
+    map_render(game->dungeon_map, ctx);
 
     renderer_increment_layer(ctx);
     animation anim_to_draw = NULL;
@@ -294,7 +293,6 @@ int game_scroll_handler(renderer_ctx, double, double) {
 void game_context_cleanup(game_ctx ctx) {
     if (ctx == NULL) return;
     if (ctx->base_font_16 != NULL) font_destroy(ctx->base_font_16);
-    if (ctx->asset_mgr != NULL) asset_manager_cleanup(ctx->asset_mgr);
     if (ctx->anim_walk_down != NULL) animation_destroy(ctx->anim_walk_down);
     if (ctx->anim_walk_up != NULL) animation_destroy(ctx->anim_walk_up);
     if (ctx->anim_walk_left != NULL) animation_destroy(ctx->anim_walk_left);
@@ -303,6 +301,8 @@ void game_context_cleanup(game_ctx ctx) {
     if (ctx->anim_idle_up != NULL) animation_destroy(ctx->anim_idle_up);
     if (ctx->anim_idle_left != NULL) animation_destroy(ctx->anim_idle_left);
     if (ctx->anim_idle_right != NULL) animation_destroy(ctx->anim_idle_right);
+    if (ctx->dungeon_map != NULL) map_destroy(ctx->dungeon_map);
+    if (ctx->asset_mgr != NULL) asset_manager_cleanup(ctx->asset_mgr);
     mtx_destroy(&ctx->lock);
     free(ctx);
 }

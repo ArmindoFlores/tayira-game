@@ -33,9 +33,13 @@ char *utils_read_whole_file(const char* filename) {
     return contents;
 }
 
-char *copy_string(const char *string) {
+char *utils_copy_string(const char *string) {
     char *new_string = (char*) calloc(strlen(string) + 1, sizeof(char));
     if (new_string == NULL) return NULL;
     strcpy(new_string, string);
     return new_string;
+}
+
+int utils_digit_length(size_t n) {
+    return snprintf(NULL, 0, "%lu", n);
 }

@@ -147,6 +147,14 @@ int asset_to_gpu(asset a) {
     return 0;
 }
 
+int asset_get_height(asset a) {
+    return a->height;
+}
+
+int asset_get_width(asset a) {
+    return a->width;
+}
+
 void asset_gpu_cleanup(asset a) {
     if (!asset_is_gpu_loaded(a)) return;
     glDeleteTextures(1, &a->id);
@@ -166,47 +174,32 @@ texture texture_from_asset(asset a, int width, int height, int offset_x, int off
     }
 
     t->asset_id = a->id;
+    t->width = width;
+    t->height = height;
+    t->offset_x = offset_x;
+    t->offset_y = offset_y;
     
-    if (asset_is_tiled(a)) {
-        float sub_x = (float) offset_x;
-        float sub_y = (float) offset_y;
+    float sub_x = (float) offset_x;
+    float sub_y = (float) offset_y;
 
-        float u0 = sub_x / a->width;
-        float v0 = sub_y / a->height;
-        float u1 = (sub_x + width) / a->width;
-        float v1 = (sub_y + height) / a->height;
+    float u0 = sub_x / a->width;
+    float v0 = sub_y / a->height;
+    float u1 = (sub_x + width) / a->width;
+    float v1 = (sub_y + height) / a->height;
 
-        if (sub_x + width > a->width || sub_y + height > a->height) {
-            log_error("{texture} indexing out of {asset} bounds", t, a);
-            free(t);
-            return NULL;
-        }
-
-        float vertices[] = {
-            0.0f, 1.0f, u0, v0,
-            1.0f, 1.0f, u1, v0,
-            1.0f, 0.0f, u1, v1,
-            0.0f, 0.0f, u0, v1
-        };
-        memcpy(t->vertices, vertices, sizeof(vertices));
-        t->width = width;
-        t->height = height;
-        t->offset_x = offset_x;
-        t->offset_y = offset_y;
+    if (sub_x + width > a->width || sub_y + height > a->height) {
+        log_error("{texture} indexing out of {asset} bounds", t, a);
+        free(t);
+        return NULL;
     }
-    else {
-        float vertices[] = {
-            0.0f, 1.0f, 0.0f, 1.0f,
-            1.0f, 1.0f, 1.0f, 1.0f,
-            1.0f, 0.0f, 1.0f, 0.0f,
-            0.0f, 0.0f, 0.0f, 0.0f
-        };
-        memcpy(t->vertices, vertices, sizeof(vertices));
-        t->width = a->width;
-        t->height = a->height;
-        t->offset_x = 0;
-        t->offset_y = 0;
-    }
+
+    float vertices[] = {
+        0.0f, 1.0f, u0, v0,
+        1.0f, 1.0f, u1, v0,
+        1.0f, 0.0f, u1, v1,
+        0.0f, 0.0f, u0, v1
+    };
+    memcpy(t->vertices, vertices, sizeof(vertices));
 
     return t;
 }

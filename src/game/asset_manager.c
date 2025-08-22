@@ -8,12 +8,24 @@
 #include <stdlib.h>
 #include <string.h>
 
+typedef struct ref_counted_asset {
+    asset asset;
+    size_t ref_count;
+} ref_counted_asset;
+
+typedef struct ref_counted_texture {
+    texture texture;
+    size_t ref_count;
+} ref_counted_texture;
+
 struct asset_manager_ctx_s {
     hashtable loaded_assets;
     hashtable loaded_textures;
     hashtable assets;
     hashtable textures;
 };
+
+static texture _asset_manager_texture_preload(asset_manager_ctx ctx, const char* texture_id, int increment_asset_refcount);
 
 static char *get_full_path(const char *partial_path, const char* suffix) {
     char *full_path = (char*) calloc(strlen(partial_path) + strlen(suffix) + sizeof(ASSETS_PATH_PREFIX), sizeof(char));
@@ -75,7 +87,7 @@ static int load_inner_asset_config(asset_manager_ctx ctx, cJSON *root_asset_conf
         return 1;
     }
 
-    asset_info *a_info = (asset_info *) malloc(sizeof(asset_info));
+    asset_info *a_info = (asset_info *) calloc(1, sizeof(asset_info));
     if (a_info == NULL) {
         log_error("Failed to allocate memory during parsing of asset config");
         cJSON_Delete(asset_config);
@@ -114,77 +126,112 @@ static int load_inner_asset_config(asset_manager_ctx ctx, cJSON *root_asset_conf
     hashtable_set(ctx->assets, root_asset_config->string, a_info);
 
     cJSON *asset_textures = cJSON_GetObjectItem(asset_config, "textures");
-    if (asset_textures == NULL) {
+    cJSON *asset_texture_info = cJSON_GetObjectItem(asset_config, "regular_texture_info");
+    if (asset_textures == NULL && asset_texture_info == NULL) {
         cJSON_Delete(asset_config);
         return 0;
     }
+    if (asset_textures != NULL) {
+        a_info->is_regular_tiled = 0;
+        if (!cJSON_IsObject(asset_textures)) {
+            log_error("Failed to parse config for asset '{s}': 'textures' must be an object", asset_name);
+            cJSON_Delete(asset_config);
+            return 1;
+        }
 
-    if (!cJSON_IsObject(asset_textures)) {
-        log_error("Failed to parse config for asset '{s}': 'textures' must be an object", asset_name);
-        cJSON_Delete(asset_config);
-        return 1;
+        cJSON *texture_element = NULL;
+        cJSON_ArrayForEach(texture_element, asset_textures) {
+            cJSON *texture_width = cJSON_GetObjectItem(texture_element, "width");
+            if (texture_width == NULL || !cJSON_IsNumber(texture_width)) {
+                log_error("Failed to parse config for asset '{s}': a texture's width must be a number", asset_name);
+                cJSON_Delete(asset_config);
+                return 1;
+            }
+            cJSON *texture_height = cJSON_GetObjectItem(texture_element, "height");
+            if (texture_height == NULL || !cJSON_IsNumber(texture_height)) {
+                log_error("Failed to parse config for asset '{s}': a texture's height must be a number", asset_name);
+                cJSON_Delete(asset_config);
+                return 1;
+            }
+            cJSON *texture_offset_x = cJSON_GetObjectItem(texture_element, "offset_x");
+            if (texture_offset_x == NULL || !cJSON_IsNumber(texture_offset_x)) {
+                log_error("Failed to parse config for asset '{s}': a texture's offset_x must be a number", asset_name);
+                cJSON_Delete(asset_config);
+                return 1;
+            }
+            cJSON *texture_offset_y = cJSON_GetObjectItem(texture_element, "offset_y");
+            if (texture_offset_y == NULL || !cJSON_IsNumber(texture_offset_y)) {
+                log_error("Failed to parse config for asset '{s}': a texture's offset_y must be a number", asset_name);
+                cJSON_Delete(asset_config);
+                return 1;
+            }
+            
+            texture_info *t_info = (texture_info *) malloc(sizeof(texture_info));
+            if (t_info == NULL) {
+                log_error("Failed to allocate memory during parsing of asset config");
+                cJSON_Delete(asset_config);
+                return 1;
+            }
+            char *texture_id = (char*) calloc(strlen(root_asset_config->string) + strlen(texture_element->string) + 2, sizeof(char));
+            if (texture_id == NULL) {
+                log_error("Failed to allocate memory during parsing of asset config");
+                free(t_info);
+                cJSON_Delete(asset_config);
+                return 1;
+            }
+            strcpy(texture_id, root_asset_config->string);
+            strcat(texture_id, "/");
+            strcat(texture_id, texture_element->string);
+
+            t_info->width = (int) cJSON_GetNumberValue(texture_width);
+            t_info->height = (int) cJSON_GetNumberValue(texture_height);
+            t_info->offset_x = (int) cJSON_GetNumberValue(texture_offset_x);
+            t_info->offset_y = (int) cJSON_GetNumberValue(texture_offset_y);
+
+            t_info->asset_id = (char*) calloc(strlen(root_asset_config->string) + 1, sizeof(char));
+            if (t_info->asset_id == NULL) {
+                log_error("Failed to allocate memory during parsing of asset config");
+                free(texture_id);
+                free(t_info);
+                return 1;
+            }
+            strcpy(t_info->asset_id, root_asset_config->string);
+            hashtable_set(ctx->textures, texture_id, t_info);
+            free(texture_id);
+        }
     }
-
-    cJSON *texture_element = NULL;
-    cJSON_ArrayForEach(texture_element, asset_textures) {
-        cJSON *texture_width = cJSON_GetObjectItem(texture_element, "width");
+    else if (asset_texture_info != NULL) {
+        a_info->is_regular_tiled = 1;
+        cJSON *texture_width = cJSON_GetObjectItem(asset_texture_info, "texture_width");
         if (texture_width == NULL || !cJSON_IsNumber(texture_width)) {
             log_error("Failed to parse config for asset '{s}': a texture's width must be a number", asset_name);
             cJSON_Delete(asset_config);
             return 1;
         }
-        cJSON *texture_height = cJSON_GetObjectItem(texture_element, "height");
+        cJSON *texture_height = cJSON_GetObjectItem(asset_texture_info, "texture_height");
         if (texture_height == NULL || !cJSON_IsNumber(texture_height)) {
             log_error("Failed to parse config for asset '{s}': a texture's height must be a number", asset_name);
             cJSON_Delete(asset_config);
             return 1;
         }
-        cJSON *texture_offset_x = cJSON_GetObjectItem(texture_element, "offset_x");
-        if (texture_offset_x == NULL || !cJSON_IsNumber(texture_offset_x)) {
-            log_error("Failed to parse config for asset '{s}': a texture's offset_x must be a number", asset_name);
+        cJSON *texture_columns = cJSON_GetObjectItem(asset_texture_info, "columns");
+        if (texture_columns == NULL || !cJSON_IsNumber(texture_columns)) {
+            log_error("Failed to parse config for asset '{s}': number of columns must be a number", asset_name);
             cJSON_Delete(asset_config);
             return 1;
         }
-        cJSON *texture_offset_y = cJSON_GetObjectItem(texture_element, "offset_y");
-        if (texture_offset_y == NULL || !cJSON_IsNumber(texture_offset_y)) {
-            log_error("Failed to parse config for asset '{s}': a texture's offset_y must be a number", asset_name);
+        cJSON *texture_rows = cJSON_GetObjectItem(asset_texture_info, "rows");
+        if (texture_rows == NULL || !cJSON_IsNumber(texture_rows)) {
+            log_error("Failed to parse config for asset '{s}': number of rows must be a number", asset_name);
             cJSON_Delete(asset_config);
             return 1;
         }
-        
-        texture_info *t_info = (texture_info *) malloc(sizeof(texture_info));
-        if (t_info == NULL) {
-            log_error("Failed to allocate memory during parsing of asset config");
-            cJSON_Delete(asset_config);
-            return 1;
-        }
-        char *texture_id = (char*) calloc(strlen(root_asset_config->string) + strlen(texture_element->string) + 2, sizeof(char));
-        if (texture_id == NULL) {
-            log_error("Failed to allocate memory during parsing of asset config");
-            free(t_info);
-            cJSON_Delete(asset_config);
-            return 1;
-        }
-        strcpy(texture_id, root_asset_config->string);
-        strcat(texture_id, "/");
-        strcat(texture_id, texture_element->string);
-
-        t_info->width = (int) cJSON_GetNumberValue(texture_width);
-        t_info->height = (int) cJSON_GetNumberValue(texture_height);
-        t_info->offset_x = (int) cJSON_GetNumberValue(texture_offset_x);
-        t_info->offset_y = (int) cJSON_GetNumberValue(texture_offset_y);
-
-        t_info->asset_id = (char*) calloc(strlen(root_asset_config->string) + 1, sizeof(char));
-        if (t_info->asset_id == NULL) {
-            log_error("Failed to allocate memory during parsing of asset config");
-            free(texture_id);
-            free(t_info);
-            return 1;
-        }
-        strcpy(t_info->asset_id, root_asset_config->string);
-        hashtable_set(ctx->textures, texture_id, t_info);
-        free(texture_id);
+        a_info->tiling_info.texture_width = (int) cJSON_GetNumberValue(texture_width);
+        a_info->tiling_info.texture_height = (int) cJSON_GetNumberValue(texture_height);
+        a_info->tiling_info.columns = (int) cJSON_GetNumberValue(texture_columns);
+        a_info->tiling_info.rows = (int) cJSON_GetNumberValue(texture_rows);
     }
+
     cJSON_Delete(asset_config);
     return 0;
 }
@@ -269,10 +316,13 @@ static texture_info texture_asset_info_from_id(asset_manager_ctx ctx, const char
     return *info;
 } 
 
-asset asset_manager_asset_preload(asset_manager_ctx ctx, const char* asset_id) {
-    asset result = hashtable_get(ctx->loaded_assets, asset_id);
-    if (result != NULL) {
-        return result;
+static asset _asset_manager_asset_preload(asset_manager_ctx ctx, const char* asset_id, int increment_refcount) {
+    ref_counted_asset *r_result = hashtable_get(ctx->loaded_assets, asset_id);
+    if (r_result != NULL) {
+        if (increment_refcount) {
+            r_result->ref_count++;
+        }
+        return r_result->asset;
     }
 
     const char *filename = filename_from_asset_id(ctx, asset_id);
@@ -280,19 +330,31 @@ asset asset_manager_asset_preload(asset_manager_ctx ctx, const char* asset_id) {
         log_error("Failed to load asset '{s}' (invalid ID)", asset_id);
         return NULL;
     }
-    result = asset_load(filename, 1);
+    asset result = asset_load(filename, 1);
     if (result == NULL) {
         log_error("Failed to load asset '{s}' from '{s}'", asset_id, filename);
         return NULL;
     }
 
-    hashtable_set(ctx->loaded_assets, asset_id, result);
+    ref_counted_asset *r_asset = (ref_counted_asset *) malloc(sizeof(ref_counted_asset));
+    if (r_asset == NULL) {
+        log_error("Failed to load asset '{s}'", asset_id);
+        return NULL;
+    }
+    r_asset->asset = result;
+    r_asset->ref_count = 1;
+
+    hashtable_set(ctx->loaded_assets, asset_id, r_asset);
     log_debug("Loaded asset '{s}'", asset_id);
     return result;
 }
 
-asset asset_manager_asset_gpu_preload(asset_manager_ctx ctx, const char* asset_id) {
-    asset result = asset_manager_asset_preload(ctx, asset_id);
+asset asset_manager_asset_preload(asset_manager_ctx ctx, const char* asset_id) {
+    return _asset_manager_asset_preload(ctx, asset_id, 1);
+}
+
+static asset _asset_manager_asset_gpu_preload(asset_manager_ctx ctx, const char* asset_id, int increment_refcount) {
+    asset result = _asset_manager_asset_preload(ctx, asset_id, increment_refcount);
     if (result == NULL) {
         return NULL;
     }
@@ -304,6 +366,10 @@ asset asset_manager_asset_gpu_preload(asset_manager_ctx ctx, const char* asset_i
         log_debug("Loaded asset '{s}' to GPU", asset_id);
     }
     return result;
+}
+
+asset asset_manager_asset_gpu_preload(asset_manager_ctx ctx, const char* asset_id) {
+    return _asset_manager_asset_gpu_preload(ctx, asset_id, 1);
 }
 
 asset_info* asset_manager_get_asset_info(asset_manager_ctx ctx, const char* asset_id) {
@@ -322,7 +388,7 @@ static iteration_result load_referenced_texture(const hashtable_entry *entry, vo
     texture_info *t_info = (texture_info *) entry->value;
     if (strcmp(t_info->asset_id, args->asset_id) == 0) {
         // This texture belongs to our asset, so we must load it
-        texture t = asset_manager_texture_preload(args->asset_mgr, entry->key);
+        texture t = _asset_manager_texture_preload(args->asset_mgr, entry->key, 0);
         if (t == NULL) {
             return ITERATION_BREAK;
         }
@@ -363,8 +429,8 @@ struct remove_textures_from_hashtable_args_s {
 static iteration_result add_textures_to_remove(const hashtable_entry *entry, void* _args) {
     struct add_textures_to_remove_args_s *args = (struct add_textures_to_remove_args_s *) _args;
 
-    texture t = (texture) entry->value;
-    if (texture_get_id(t) == args->gpu_asset_id) {
+    ref_counted_texture *t = (ref_counted_texture*) entry->value;
+    if (texture_get_id(t->texture) == args->gpu_asset_id) {
         linked_list_pushfront(args->textures_to_remove, entry->key);  // FIXME: may fail
     }
 
@@ -375,23 +441,28 @@ static iteration_result remove_textures_from_hashtable(const void *value, void* 
     struct remove_textures_from_hashtable_args_s *args = (struct remove_textures_from_hashtable_args_s *) _args;
     const char* texture_id = (const char*) value;
     log_debug("Unloading child texture '{s}'", texture_id);
-    texture t = (texture) hashtable_delete(args->loaded_textures, texture_id);
+    ref_counted_texture *t = (ref_counted_texture *) hashtable_delete(args->loaded_textures, texture_id);
     if (t != NULL) {
-        texture_destroy(t);
+        texture_destroy(t->texture);
+        free(t);
     }
     return ITERATION_CONTINUE;
 }
 
 int asset_manager_asset_unload(asset_manager_ctx ctx, const char* asset_id) {
-    asset result = hashtable_get(ctx->loaded_assets, asset_id);
+    ref_counted_asset *result = hashtable_get(ctx->loaded_assets, asset_id);
     if (result == NULL) {
         return 0;
     }
+    if (result->ref_count > 1) {
+        result->ref_count--;
+        return 0;
+    }
     log_debug("Unloading asset '{s}'", asset_id);
-    if (asset_is_gpu_loaded(result)) {
+    if (asset_is_gpu_loaded(result->asset)) {
         // Since this asset has been loaded into the GPU, it might have
         // textures instantiated from it which must be deleted as well.
-        unsigned int gpu_asset_id = asset_get_id(result);
+        unsigned int gpu_asset_id = asset_get_id(result->asset);
         
         // We can't remove a value from a hashtable while iterating, so let's
         // store values to be removed in a list, and remove them later by
@@ -417,18 +488,22 @@ int asset_manager_asset_unload(asset_manager_ctx ctx, const char* asset_id) {
             remove_textures_from_hashtable,
             &remove_textures_from_hashtable_args
         );
+        // Decrement ref count by number of unloaded textures
+        result->ref_count -= linked_list_size(textures_to_remove);
         linked_list_destroy(textures_to_remove);
     }
     hashtable_delete(ctx->loaded_assets, asset_id);
-    asset_unload(result);
+    asset_unload(result->asset);
+    free(result);
     log_debug("Unloaded asset '{s}'", asset_id);
     return 0;
 }
 
-texture asset_manager_texture_preload(asset_manager_ctx ctx, const char* texture_id) {
-    texture result = hashtable_get(ctx->loaded_textures, texture_id);
-    if (result != NULL) {
-        return result;
+static texture _asset_manager_texture_preload(asset_manager_ctx ctx, const char* texture_id, int increment_asset_refcount) {
+    ref_counted_texture *r_result = hashtable_get(ctx->loaded_textures, texture_id);
+    if (r_result != NULL) {
+        r_result->ref_count++;
+        return r_result->texture;
     }
 
     texture_info texture_asset_info = texture_asset_info_from_id(ctx, texture_id);
@@ -436,20 +511,44 @@ texture asset_manager_texture_preload(asset_manager_ctx ctx, const char* texture
         log_error("Failed to load texture '{s}' (could not retrieve parent asset info)", texture_id);
         return NULL;
     }
-    asset parent_asset = asset_manager_asset_gpu_preload(ctx, texture_asset_info.asset_id);
+    asset parent_asset = _asset_manager_asset_gpu_preload(ctx, texture_asset_info.asset_id, increment_asset_refcount);
     if (parent_asset == NULL) {
         log_error("Failed to load asset '{s}' (required by texture '{s}')", texture_asset_info.asset_id, texture_id);
         return NULL;
     }
     
-    result = texture_from_asset(parent_asset, texture_asset_info.width, texture_asset_info.height, texture_asset_info.offset_x, texture_asset_info.offset_y);
-    hashtable_set(ctx->loaded_textures, texture_id, result);
+    texture result = texture_from_asset(parent_asset, texture_asset_info.width, texture_asset_info.height, texture_asset_info.offset_x, texture_asset_info.offset_y);
+    ref_counted_texture *r_texture = (ref_counted_texture *) malloc(sizeof(ref_counted_texture));
+    if (r_texture == NULL) {
+        log_error("Failed to load texture '{s}'", texture_id);
+        texture_destroy(result);
+        return NULL;
+    }
+    r_texture->texture = result;
+    r_texture->ref_count = 1;
+    hashtable_set(ctx->loaded_textures, texture_id, r_texture);
     log_debug("Loaded texture '{s}'", texture_id);
     return result;
 }
 
+texture asset_manager_texture_preload(asset_manager_ctx ctx, const char* texture_id) {
+    return _asset_manager_texture_preload(ctx, texture_id, 1);
+}
+
 texture asset_manager_get_texture(asset_manager_ctx ctx, const char* texture_id) {
-    return hashtable_get(ctx->loaded_textures, texture_id);
+    ref_counted_texture *r_texture = hashtable_get(ctx->loaded_textures, texture_id);
+    if (r_texture == NULL) {
+        return NULL;
+    }
+    return r_texture->texture;
+}
+
+asset asset_manager_get_asset(asset_manager_ctx ctx, const char* asset_id) {
+    ref_counted_asset *r_asset = hashtable_get(ctx->loaded_assets, asset_id);
+    if (r_asset == NULL) {
+        return NULL;
+    }
+    return r_asset->asset;
 }
 
 texture_info *asset_manager_get_texture_info(asset_manager_ctx ctx, const char* texture_id) {
@@ -457,16 +556,34 @@ texture_info *asset_manager_get_texture_info(asset_manager_ctx ctx, const char* 
 }
 
 void asset_manager_texture_unload(asset_manager_ctx ctx, const char* texture_id) {
+    ref_counted_texture *result = hashtable_get(ctx->loaded_textures, texture_id);
+    if (result->ref_count > 1) {
+        result->ref_count--;
+        return;
+    }
+    texture_info texture_asset_info = texture_asset_info_from_id(ctx, texture_id);
+    if (texture_asset_info.asset_id == NULL) {
+        log_error("Failed to unload texture '{s}' (could not retrieve parent asset info)", texture_id);
+        return;
+    }
+
+    asset_manager_asset_unload(ctx, texture_asset_info.asset_id);
     hashtable_delete(ctx->loaded_textures, texture_id);
+    texture_destroy(result->texture);
+    free(result);
 }
 
 static iteration_result destroy_loaded_asset(const hashtable_entry *entry) {
-    asset_unload((asset) entry->value);
+    ref_counted_asset *r_asset = entry->value;
+    asset_unload(r_asset->asset);
+    free(r_asset);
     return ITERATION_CONTINUE;
 }
 
 static iteration_result destroy_loaded_texture(const hashtable_entry *entry) {
-    texture_destroy((texture) entry->value);
+    ref_counted_texture *r_texture = entry->value;
+    texture_destroy(r_texture->texture);
+    free(r_texture);
     return ITERATION_CONTINUE;
 }
 

@@ -24,10 +24,6 @@ struct animation_s {
     size_t start, interval, duration, steps;
 };
 
-static int digit_length(size_t n) {
-    return snprintf(NULL, 0, "%lu", n);
-}
-
 static char *get_animation_path(const char *partial_path) {
     char *fullpath = (char*) calloc(strlen(partial_path) + sizeof(ASSETS_PATH_PREFIX) + sizeof(ANIM_CONFIG_FILE_EXT) - 1, sizeof(char));
     if (fullpath == NULL) {
@@ -40,7 +36,7 @@ static char *get_animation_path(const char *partial_path) {
 }
 
 static size_t get_animation_texture_id_length(const char *asset_id, const char *texture_prefix, size_t step) {
-    size_t result = strlen(asset_id) + strlen(texture_prefix) + digit_length(step) + 2;
+    size_t result = strlen(asset_id) + strlen(texture_prefix) + utils_digit_length(step) + 2;
     return result;
 }
 
@@ -205,7 +201,7 @@ static int load_animation_config(animation anim) {
             cJSON_Delete(config_json);
             return 1;
         }
-        animation_info->prefix = copy_string(new_texture_prefix);
+        animation_info->prefix = utils_copy_string(new_texture_prefix);
         if (animation_info->prefix == NULL) {
             log_error("Failed to allocate memory while parsing animation config");
             free(animation_info);
@@ -386,10 +382,7 @@ int animation_unload(animation anim) {
     linked_list_foreach(anim->anim_config, destroy_animation_config);
     linked_list_destroy(anim->anim_config);
     anim->anim_config = NULL;
-    
-    // We can't unload the animation asset since multiple animations
-    // may use the same asset. 
-    // TODO: Add reference counting to asset_manager
+    asset_manager_asset_unload(anim->asset_mgr, anim->base_asset_id);  // FIXME: this may fail
     return 0;
 }
 

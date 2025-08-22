@@ -1,5 +1,5 @@
 {
-    "tiles": "images/map/tiles",
+    "tiles": "images/maps/tiles",
     "font-regular-16": "images/fonts/regular-16",
     "unarmed_idle": "images/player/unarmed_idle",
     "sword_idle": "images/player/sword_idle",
@@ -38,5 +38,11 @@
     "orc_run_attack_front_full": "images/monsters/orc/orc_run_attack_front_full",
     "orc_hurt_full": "images/monsters/orc/orc_hurt_full",
     "orc_death_full": "images/monsters/orc/orc_death_full",
-    "font-yoster-island-12": "images/fonts/font-yoster-island-12"
+    "font-yoster-island-12": "images/fonts/font-yoster-island-12",
+    "cracked_tiles": "images/maps/cracked_tiles",
+    "walls_floor": "images/maps/walls_floor",
+    "objects": "images/maps/objects",
+    "fire_animation": "images/maps/fire_animation",
+    "doors_lever_chest_animation": "images/maps/doors_lever_chest_animation",
+    "water_coasts_animation": "images/maps/water_coasts_animation"
 }

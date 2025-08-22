@@ -8,6 +8,10 @@ typedef struct asset_manager_ctx_s* asset_manager_ctx;
 typedef struct asset_info {
     char *asset_src;
     char *asset_partial_src;
+    int is_regular_tiled;
+    struct tiling_info {
+        int rows, columns, texture_width, texture_height;
+    } tiling_info;
 } asset_info;
 
 typedef struct texture_info {
@@ -20,6 +24,7 @@ int asset_manager_asset_and_textures_preload(asset_manager_ctx, const char* asse
 asset asset_manager_asset_gpu_preload(asset_manager_ctx, const char* asset_id);
 asset asset_manager_asset_preload(asset_manager_ctx, const char* asset_id);
 asset_info* asset_manager_get_asset_info(asset_manager_ctx, const char* asset_id);
+asset asset_manager_get_asset(asset_manager_ctx, const char* asset_id);
 int asset_manager_asset_unload(asset_manager_ctx, const char* asset_id);
 texture asset_manager_texture_preload(asset_manager_ctx, const char* texture_id);
 texture asset_manager_get_texture(asset_manager_ctx, const char* texture_id);
