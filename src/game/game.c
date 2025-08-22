@@ -112,6 +112,7 @@ game_ctx game_context_init() {
 static void game_render(game_ctx game, renderer_ctx ctx, double, double t) {
     map_render(game->dungeon_map, ctx);
 
+    renderer_set_blend_mode(ctx, BLEND_MODE_BINARY);
     renderer_increment_layer(ctx);
     animation anim_to_draw = NULL;
     if (game->player_moving) {

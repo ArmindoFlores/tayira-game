@@ -21,6 +21,11 @@ typedef enum render_anchor {
     RENDER_ANCHOR_BOTTOM = 0b00010000
 } render_anchor;
 
+typedef enum blending_mode {
+    BLEND_MODE_BINARY,
+    BLEND_MODE_TRANSPARENCY
+} blending_mode;
+
 typedef struct renderer_ctx_s *renderer_ctx;
 typedef int (*key_callback) (renderer_ctx, int key, int scancode, int action, int mods);
 typedef int (*mouse_button_callback) (renderer_ctx, int button, int action, int mods);
@@ -34,6 +39,7 @@ unsigned int renderer_set_layer(renderer_ctx, unsigned int layer);
 unsigned int renderer_get_layer(renderer_ctx);
 unsigned int renderer_increment_layer(renderer_ctx);
 unsigned int renderer_decrement_layer(renderer_ctx);
+void renderer_set_blend_mode(renderer_ctx, blending_mode);
 void renderer_fill(renderer_ctx, color_rgb);
 void renderer_run(
     renderer_ctx, 

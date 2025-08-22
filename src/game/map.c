@@ -415,6 +415,12 @@ static iteration_result draw_map_grid(const hashtable_entry* entry, void *_args)
     map_grid_info *grid_info = (map_grid_info *) entry->value;
 
     renderer_set_layer(args->renderer, args->base_layer + grid_info->layer);
+    if (grid_info->layer > 2) {
+        renderer_set_blend_mode(args->renderer, BLEND_MODE_TRANSPARENCY);
+    }
+    else {
+        renderer_set_blend_mode(args->renderer, BLEND_MODE_BINARY);
+    }
     for (int row = 0; row < args->map->height; row++) {
         for (int col = 0; col < args->map->width; col++) {
             int grid_value = grid_info->grid[row * args->map->width + col];

@@ -3,10 +3,12 @@ out vec4 FragColor;
 
 in vec2 TexCoord;
 in vec4 vColor;
+
 uniform sampler2D uTexture;
+uniform float uAlphaClip;
 
 void main() {
     vec4 texel = texture(uTexture, TexCoord);
-    if (texel.a < 0.5) discard;
-    FragColor = texture(uTexture, TexCoord) * vColor;
+    if (texel.a <= uAlphaClip) discard;
+    FragColor = texel * vColor;
 }

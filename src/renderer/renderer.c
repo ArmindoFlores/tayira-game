@@ -74,6 +74,7 @@ typedef struct texture_renderer_data {
     GLint uScreenLoc;
     GLint uPanLoc; 
     GLint uColorLoc;
+    GLint uAlphaClipLoc;
 } texture_renderer_data;
 
 typedef struct gl_line_instance {
@@ -127,6 +128,8 @@ struct renderer_ctx_s {
 
     size_t draw_calls, last_draw_calls;
     size_t drawn_instances, last_drawn_instances;
+
+    blending_mode blending_mode;
 };
 
 typedef struct input_callbacks {
@@ -388,6 +391,7 @@ static int create_texture_buffers(renderer_ctx ctx) {
     DECLARE_UNIFORM(ctx->texture_renderer_data, uScreen);
     DECLARE_UNIFORM(ctx->texture_renderer_data, uPan);
     DECLARE_UNIFORM(ctx->texture_renderer_data, uColor);
+    DECLARE_UNIFORM(ctx->texture_renderer_data, uAlphaClip);
 
     return 0;
 }
@@ -478,6 +482,7 @@ renderer_ctx renderer_init(int width, int height, const char *title) {
     ctx->pan_y = 0;
     ctx->screen_w = 1;
     ctx->screen_h = 1;
+    ctx->blending_mode = BLEND_MODE_TRANSPARENCY;
 
     ctx->texture_renderer_data.base_data.max_instances = 16384;
     ctx->line_renderer_data.base_data.max_instances = 4096;
@@ -516,8 +521,10 @@ renderer_ctx renderer_init(int width, int height, const char *title) {
     }
 
     glEnable(GL_DEPTH_TEST);
+    glEnable(GL_BLEND);
     glDepthFunc(GL_LESS);
-    glDepthMask(GL_TRUE);
+    glDepthMask(GL_FALSE);
+    glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
 
     if (renderer_create_offscreen(ctx, ctx->logical_w, ctx->logical_h) != 0) {
         log_error("Failed to create offscreen framebuffer");
@@ -575,6 +582,7 @@ static void renderer_flush_texture_batch(renderer_ctx ctx) {
     glBindVertexArray(ctx->texture_renderer_data.base_data.vertex_array_buffer);
     glBindBuffer(GL_ARRAY_BUFFER, ctx->texture_renderer_data.base_data.instance_vertex_buffer_object);
 
+    glUniform1f(ctx->texture_renderer_data.uAlphaClipLoc, ctx->blending_mode == BLEND_MODE_BINARY ? 0.5 : 0);
     glUniform2f(ctx->texture_renderer_data.uScreenLoc, (float)ctx->logical_w, (float)ctx->logical_h);
     if (ctx->texture_renderer_data.uPanLoc >= 0) {
         glUniform2f(ctx->texture_renderer_data.uPanLoc, ctx->pan_x, ctx->pan_y);
@@ -626,6 +634,21 @@ void renderer_flush_batch(renderer_ctx ctx) {
     }
     if (ctx->line_renderer_data.base_data.instance_count > 0) {
         renderer_flush_line_batch(ctx);
+    }
+}
+
+void renderer_set_blend_mode(renderer_ctx ctx, blending_mode mode) {
+    if (ctx->blending_mode == mode) return;
+    renderer_flush_texture_batch(ctx);
+
+    ctx->blending_mode = mode;
+    if (mode == BLEND_MODE_BINARY) {
+        glDisable(GL_BLEND);
+        glDepthMask(GL_TRUE);
+    }
+    else {
+        glEnable(GL_BLEND);
+        glDepthMask(GL_FALSE);
     }
 }
 
@@ -697,6 +720,7 @@ static void renderer_begin_batch(renderer_ctx ctx) {
     glViewport(0, 0, ctx->logical_w, ctx->logical_h);
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    renderer_set_blend_mode(ctx, BLEND_MODE_TRANSPARENCY);
 
     ctx->draw_calls = 0;
     ctx->drawn_instances = 0;
