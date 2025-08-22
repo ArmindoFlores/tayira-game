@@ -44,11 +44,11 @@ game_ctx game_context_init() {
     }
 
     game->start_move_pos = 0;
-    game->pixels_per_keypress = 16;
+    game->pixels_per_keypress = 8;
     game->player_moving = 0;
     game->held_direction = DIRECTION_NONE;
     game->player_direction = DIRECTION_RIGHT;
-    game->player_position = (position_vec) { .x = 240.0f, .y = 160.0f };
+    game->player_position = (position_vec) { .x = 48.0f, .y = 16.0f };
     game->debug_info = 0;
     game->asset_mgr = asset_manager_init();
     if (game->asset_mgr == NULL) {
@@ -150,7 +150,7 @@ static void game_render(game_ctx game, renderer_ctx ctx, double, double t) {
         } 
     }
     if (anim_to_draw != NULL) {
-        animation_render(anim_to_draw, ctx, (int) game->player_position.x, (int) game->player_position.y, t, RENDER_ANCHOR_CENTER);
+        animation_render(anim_to_draw, ctx, (int) game->player_position.x, (int) game->player_position.y, t, RENDER_ANCHOR_TOP | RENDER_ANCHOR_LEFT);
     }
 
     if (game->debug_info) {
