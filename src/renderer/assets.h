@@ -26,6 +26,8 @@ texture texture_from_asset(asset, int width, int height, int offset_x, int offse
 unsigned int texture_get_id(texture);
 int texture_get_height(texture);
 int texture_get_width(texture);
+int texture_get_offset_x(texture);
+int texture_get_offset_y(texture);
 void texture_get_vertices(texture, float vertices[16]);
 void texture_destroy(texture);
 void texture_register_log_printer();

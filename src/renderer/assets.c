@@ -26,6 +26,10 @@ struct texture_s {
 
 static int asset_printer_fn(FILE *stream, const char *, va_list args) {
     asset a = va_arg(args, asset);
+    if (a == NULL) {
+        fprintf(stream, "(asset) {NULL}");
+        return 0;
+    }
     fprintf(
         stream,
         "(asset) { .width = %d, .height = %d, .channels = %d, .pixels = %p, .flags = %d, .id = %u }",
@@ -41,6 +45,10 @@ static int asset_printer_fn(FILE *stream, const char *, va_list args) {
 
 static int texture_printer_fn(FILE *stream, const char *, va_list args) {
     texture t = va_arg(args, texture);
+    if (t == NULL) {
+        fprintf(stream, "(texture) {NULL}");
+        return 0;
+    }
     fprintf(
         stream,
         "(texture) { .width = %d, .height = %d, .offset_x = %d, .offset_y = %d, .asset_id = %u }",
@@ -214,6 +222,14 @@ int texture_get_height(texture t) {
 
 int texture_get_width(texture t) {
     return t->width;
+}
+
+int texture_get_offset_x(texture t) {
+    return t->offset_x;
+}
+
+int texture_get_offset_y(texture t) {
+    return t->offset_y;
 }
 
 void texture_get_vertices(texture t, float vertices[16]) {

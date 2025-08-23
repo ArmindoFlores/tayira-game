@@ -192,12 +192,12 @@ static void game_render(game_ctx game, renderer_ctx ctx, double, double t) {
         else {
             log_warning("Failed to write to buffer");
         }
-        for (int y = 0; y < 20; y++) {
-            renderer_draw_line(ctx, 0.0f, y * 16.0f, 30.0f * 16.0f, y * 16.0f, (color_rgb) { .r = 1.0f, .g = 1.0f, .b = 1.0f }, 1);
-        }
-        for (int x = 0; x < 30; x++) {
-            renderer_draw_line(ctx, x * 16.0f, 0.0f, x * 16.0f, 20.0f * 16.0f, (color_rgb) { .r = 1.0f, .g = 1.0f, .b = 1.0f }, 1);
-        }
+        // for (int y = 0; y < 20; y++) {
+        //     renderer_draw_line(ctx, 0.0f, y * 16.0f, 30.0f * 16.0f, y * 16.0f, (color_rgb) { .r = 1.0f, .g = 1.0f, .b = 1.0f }, 1);
+        // }
+        // for (int x = 0; x < 30; x++) {
+        //     renderer_draw_line(ctx, x * 16.0f, 0.0f, x * 16.0f, 20.0f * 16.0f, (color_rgb) { .r = 1.0f, .g = 1.0f, .b = 1.0f }, 1);
+        // }
     }
 }
 

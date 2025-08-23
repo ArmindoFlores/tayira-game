@@ -20,17 +20,42 @@ typedef struct ref_counted_texture {
     size_t ref_count;
 } ref_counted_texture;
 
+typedef enum record_type {
+    RECORD_TYPE_ASSET,
+    RECORD_TYPE_ASSET_CONFIG,
+} record_type;
+
+typedef struct file_record_info {
+    char *key;
+    record_type type;
+} file_record_info;
+
 struct asset_manager_ctx_s {
     hashtable loaded_assets;
     hashtable loaded_textures;
     hashtable assets;
     hashtable textures;
 
+    hashtable file_record;
     watchdog file_watcher;
     linked_list changed_files_queue;
     mtx_t changed_files_queue_mtx;
     int changed_files_queue_mtx_init;
 };
+
+static void track_for_hot_reload(asset_manager_ctx ctx, const char *filename, const char *key, record_type type) {
+    file_record_info *fr_info = (file_record_info *) malloc(sizeof(file_record_info));
+    if (fr_info == NULL) return;
+    fr_info->key = utils_copy_string(key);
+    if (fr_info->key == NULL) return;
+    fr_info->type = type;
+    if (hashtable_set(ctx->file_record, filename, fr_info) != 0) {
+        free(fr_info->key);
+        free(fr_info);
+        return;
+    }
+    watchdog_watch(ctx->file_watcher, filename);
+}
 
 static texture _asset_manager_texture_preload(asset_manager_ctx ctx, const char* texture_id, int increment_asset_refcount);
 
@@ -66,7 +91,7 @@ static int load_inner_asset_config(asset_manager_ctx ctx, cJSON *root_asset_conf
         log_error("Failed to allocate memory during parsing of asset config");
         return 1;
     }
-    watchdog_watch(ctx->file_watcher, asset_config_path);
+    track_for_hot_reload(ctx, asset_config_path, asset_name, RECORD_TYPE_ASSET_CONFIG);
 
     char *asset_config_string = utils_read_whole_file(asset_config_path);
     free(asset_config_path);
@@ -323,6 +348,11 @@ asset_manager_ctx asset_manager_init() {
         asset_manager_cleanup(ctx);
         return NULL;
     }
+    ctx->file_record = hashtable_create();
+    if (ctx->file_record == NULL) {
+        asset_manager_cleanup(ctx);
+        return NULL;
+    }
     if (mtx_init(&ctx->changed_files_queue_mtx, mtx_plain) != thrd_success) {
         asset_manager_cleanup(ctx);
         return NULL;
@@ -385,7 +415,7 @@ static asset _asset_manager_asset_preload(asset_manager_ctx ctx, const char* ass
     r_asset->ref_count = 1;
 
     hashtable_set(ctx->loaded_assets, asset_id, r_asset);
-    watchdog_watch(ctx->file_watcher, filename);
+    track_for_hot_reload(ctx, filename, asset_id, RECORD_TYPE_ASSET);
     log_debug("Loaded asset '{s}'", asset_id);
     return result;
 }
@@ -614,6 +644,92 @@ void asset_manager_texture_unload(asset_manager_ctx ctx, const char* texture_id)
     free(result);
 }
 
+struct update_child_texture_args_s {
+    asset old_asset, new_asset;
+};
+
+static iteration_result update_child_texture(const hashtable_entry* entry, void *_args) {
+    struct update_child_texture_args_s *args = (struct update_child_texture_args_s *) _args;
+    ref_counted_texture *rc_texture = (ref_counted_texture *) entry->value;
+    texture old_texture = rc_texture->texture;
+
+    // Skip textures tied to a different asset
+    if (texture_get_id(old_texture) != asset_get_id(args->old_asset)) return ITERATION_CONTINUE;
+    
+    int width = texture_get_width(old_texture);
+    int height = texture_get_height(old_texture);
+    int offset_x = texture_get_offset_x(old_texture);
+    int offset_y = texture_get_offset_y(old_texture);
+
+    // TODO: This might easier todo if we implement a `texture_hot_swap(...)` that allows
+    // TODO: an existing texture to adopt a new parent asset without memory allocations
+    texture new_texture = texture_from_asset(args->new_asset, width, height, offset_x, offset_y);
+    if (new_texture == NULL) {
+        // FIXME: Everything will probably break if we ignore this
+        log_warning("Failed to instantiate new texture '{s}'", entry->key);
+        return ITERATION_CONTINUE;
+    }
+    rc_texture->texture = new_texture;
+    texture_destroy(old_texture);
+
+    log_debug("Reloaded child texture '{s}'", entry->key);
+    return ITERATION_CONTINUE;
+}
+
+static void reload_asset(asset_manager_ctx ctx, const char *asset_id, const char *filename) {
+    log_info("Reloading asset '{s}'", asset_id);
+
+    ref_counted_asset *rc_asset = hashtable_get(ctx->loaded_assets, asset_id);
+    asset old_asset = rc_asset == NULL ? NULL : rc_asset->asset;
+    if (old_asset == NULL) {
+        // TODO: it should be even simpler to "reload" an unloaded asset
+        log_warning("Couldn't reload asset '{s}' as it was unloaded", asset_id);
+        return;
+    }
+
+    asset new_asset = asset_load(filename, 1);
+    if (new_asset == NULL) {
+        log_warning("Failed to reload asset '{s}'", asset_id);
+        return;
+    }
+
+    if (asset_get_width(old_asset) != asset_get_width(new_asset) || asset_get_height(old_asset) != asset_get_height(new_asset)) {
+        // TODO: also check asset->channels, perhaps implementing `asset_compare_metadata(asset1, asset2)`
+        // If our asset has changed dimensions, we can't update it without also updating the config
+        // For now, we assume the config will eventually be updated to reflect these changes, and so
+        // do nothing. When the config is updated, it will update all its dependant assets
+        log_info("Skipping reload of asset '{s}' since its metadata changed; waiting for config to be updated", asset_id);
+        return;
+    }
+    
+    if (!asset_is_gpu_loaded(old_asset)) {
+        // If the asset isn't GPU loaded, this means that there are no attached textures
+        // This means we should be able to just swap these assets
+        rc_asset->asset = new_asset;
+        asset_unload(old_asset);
+    }
+    else {
+        // If the asset *is* GPU loaded, our work is much harder; we have to update all child
+        // textures
+        if (asset_to_gpu(new_asset) != 0) {
+            log_warning("Failed to load asset '{s}' to the GPU", asset_id);
+            asset_unload(new_asset);
+            return;
+        }
+        struct update_child_texture_args_s update_child_texture_args = {
+            .new_asset = new_asset,
+            .old_asset = old_asset
+        };
+        hashtable_foreach_args(ctx->loaded_textures, update_child_texture, &update_child_texture_args);
+        rc_asset->asset = new_asset;
+        asset_unload(old_asset);
+    }
+}
+
+static void reload_asset_config(asset_manager_ctx ctx, const char *asset_id, const char *filename) {
+    log_info("Reloading asset config '{s}'", asset_id);
+}
+
 void asset_manager_hot_reload_handler(asset_manager_ctx ctx) {
     while (1) {
         mtx_lock(&ctx->changed_files_queue_mtx);
@@ -621,7 +737,25 @@ void asset_manager_hot_reload_handler(asset_manager_ctx ctx) {
         mtx_unlock(&ctx->changed_files_queue_mtx);
         if (filename == NULL) break;
         log_info("File '{s}' has changed, reloading", filename);
-        // TODO: reload
+        
+        file_record_info *fr_info = hashtable_get(ctx->file_record, filename);
+        if (fr_info == NULL) {
+            log_warning("File '{s}' has no corresponding resource, so it could not be reloaded");
+        }
+        else {
+            switch (fr_info->type) {
+                case RECORD_TYPE_ASSET:
+                    reload_asset(ctx, fr_info->key, filename);
+                    break;
+                case RECORD_TYPE_ASSET_CONFIG:
+                    reload_asset_config(ctx, fr_info->key, filename);
+                    break;
+                default:
+                    log_warning("Invalid asset type specified during hot reloading");
+                    break;
+            }
+        }
+
         free(filename);
     }
 }
@@ -660,6 +794,13 @@ static iteration_result destroy_filename(void *element) {
     return ITERATION_CONTINUE;
 }
 
+static iteration_result destroy_file_record(const hashtable_entry *entry) {
+    file_record_info *fr_info = entry->value;
+    free(fr_info->key);
+    free(fr_info);
+    return ITERATION_CONTINUE;
+}
+
 void asset_manager_cleanup(asset_manager_ctx ctx) {
     if (ctx == NULL) return;
     if (ctx->file_watcher != NULL) {
@@ -684,6 +825,10 @@ void asset_manager_cleanup(asset_manager_ctx ctx) {
     if (ctx->textures != NULL) {
         hashtable_foreach(ctx->textures, destroy_texture);
         hashtable_destroy(ctx->textures);
+    }
+    if (ctx->file_record != NULL) {
+        hashtable_foreach(ctx->file_record, destroy_file_record);
+        hashtable_destroy(ctx->file_record);
     }
     if (ctx->changed_files_queue_mtx_init) {
         mtx_destroy(&ctx->changed_files_queue_mtx);
