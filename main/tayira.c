@@ -1,3 +1,4 @@
+#include "watchdog/watchdog.h"
 #include "game/game.h"
 #include "game/font.h"
 #include "renderer/renderer.h"
@@ -37,7 +38,7 @@ int print_hashtable(FILE *stream, const char* options, va_list args) {
         fprintf(stream, "(hashtable) {NULL}");
         return 0;
     }
-    
+
     fputc('{', stream);
 
     struct print_hashtable_entry_args_s print_hashtable_entry_args = {
@@ -56,7 +57,7 @@ struct print_linked_list_value_args_s {
     FILE *stream;
 };
 
-iteration_result print_linked_list_value(const void *value, void *_args) {
+iteration_result print_linked_list_value(void *value, void *_args) {
     struct print_linked_list_value_args_s *args = (struct print_linked_list_value_args_s *) _args;
 
     // Build a new format string to output the value type

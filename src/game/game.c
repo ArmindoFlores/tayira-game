@@ -44,7 +44,7 @@ game_ctx game_context_init() {
     }
 
     game->start_move_pos = 0;
-    game->pixels_per_keypress = 16;
+    game->pixels_per_keypress = 1;
     game->player_moving = 0;
     game->held_direction = DIRECTION_NONE;
     game->player_direction = DIRECTION_RIGHT;
@@ -272,6 +272,7 @@ int game_update_handler(renderer_ctx ctx, double dt, double t) {
     const double alpha = accumulator / FIXED_DT;
 
     game_render(game, ctx, alpha, t);
+    asset_manager_hot_reload_handler(game->asset_mgr);
 
     return 0;
 }

@@ -2,11 +2,13 @@
 #include "config.h"
 #include "data_structures/hashtable.h"
 #include "data_structures/linked_list.h"
+#include "watchdog/watchdog.h"
 #include "utils/utils.h"
 #include "logger/logger.h"
 #include "cjson/cJSON.h"
 #include <stdlib.h>
 #include <string.h>
+#include <threads.h>
 
 typedef struct ref_counted_asset {
     asset asset;
@@ -23,6 +25,11 @@ struct asset_manager_ctx_s {
     hashtable loaded_textures;
     hashtable assets;
     hashtable textures;
+
+    watchdog file_watcher;
+    linked_list changed_files_queue;
+    mtx_t changed_files_queue_mtx;
+    int changed_files_queue_mtx_init;
 };
 
 static texture _asset_manager_texture_preload(asset_manager_ctx ctx, const char* texture_id, int increment_asset_refcount);
@@ -59,6 +66,7 @@ static int load_inner_asset_config(asset_manager_ctx ctx, cJSON *root_asset_conf
         log_error("Failed to allocate memory during parsing of asset config");
         return 1;
     }
+    watchdog_watch(ctx->file_watcher, asset_config_path);
 
     char *asset_config_string = utils_read_whole_file(asset_config_path);
     free(asset_config_path);
@@ -279,6 +287,21 @@ static int load_asset_config(asset_manager_ctx ctx) {
     return return_value;
 }
 
+static void watchdog_cb(const char* file, watchdog_event event, void *_args) {
+    asset_manager_ctx ctx = (asset_manager_ctx) _args;
+    char *filename_copy = utils_copy_string(file);
+    if (filename_copy == NULL) {
+        log_warning("Failed to add file '{s}' to list of changed files");
+        return;
+    }
+
+    mtx_lock(&ctx->changed_files_queue_mtx);
+    if (linked_list_pushfront(ctx->changed_files_queue, filename_copy) != 0) {
+        log_warning("Failed to add file '{s}' to list of changed files");
+    }
+    mtx_unlock(&ctx->changed_files_queue_mtx);
+}
+
 asset_manager_ctx asset_manager_init() {
     asset_manager_ctx ctx = (asset_manager_ctx) calloc(1, sizeof(struct asset_manager_ctx_s));
     if (ctx == NULL) {
@@ -294,6 +317,23 @@ asset_manager_ctx asset_manager_init() {
     if (ctx->loaded_textures == NULL) {
         asset_manager_cleanup(ctx);
         return NULL;
+    }
+    ctx->changed_files_queue = linked_list_create();
+    if (ctx->changed_files_queue == NULL) {
+        asset_manager_cleanup(ctx);
+        return NULL;
+    }
+    if (mtx_init(&ctx->changed_files_queue_mtx, mtx_plain) != thrd_success) {
+        asset_manager_cleanup(ctx);
+        return NULL;
+    }
+    ctx->changed_files_queue_mtx_init = 1;
+    ctx->file_watcher = watchdog_create(watchdog_cb, ctx);
+    if (ctx->file_watcher == NULL) {
+        log_warning("Running without asset manager file watcher");
+    }
+    else {
+        watchdog_run(ctx->file_watcher);
     }
     if (load_asset_config(ctx) != 0) {
         asset_manager_cleanup(ctx);
@@ -345,6 +385,7 @@ static asset _asset_manager_asset_preload(asset_manager_ctx ctx, const char* ass
     r_asset->ref_count = 1;
 
     hashtable_set(ctx->loaded_assets, asset_id, r_asset);
+    watchdog_watch(ctx->file_watcher, filename);
     log_debug("Loaded asset '{s}'", asset_id);
     return result;
 }
@@ -437,7 +478,7 @@ static iteration_result add_textures_to_remove(const hashtable_entry *entry, voi
     return ITERATION_CONTINUE;
 }
 
-static iteration_result remove_textures_from_hashtable(const void *value, void* _args) {
+static iteration_result remove_textures_from_hashtable(void *value, void* _args) {
     struct remove_textures_from_hashtable_args_s *args = (struct remove_textures_from_hashtable_args_s *) _args;
     const char* texture_id = (const char*) value;
     log_debug("Unloading child texture '{s}'", texture_id);
@@ -573,6 +614,18 @@ void asset_manager_texture_unload(asset_manager_ctx ctx, const char* texture_id)
     free(result);
 }
 
+void asset_manager_hot_reload_handler(asset_manager_ctx ctx) {
+    while (1) {
+        mtx_lock(&ctx->changed_files_queue_mtx);
+        char *filename = linked_list_popfront(ctx->changed_files_queue);
+        mtx_unlock(&ctx->changed_files_queue_mtx);
+        if (filename == NULL) break;
+        log_info("File '{s}' has changed, reloading", filename);
+        // TODO: reload
+        free(filename);
+    }
+}
+
 static iteration_result destroy_loaded_asset(const hashtable_entry *entry) {
     ref_counted_asset *r_asset = entry->value;
     asset_unload(r_asset->asset);
@@ -602,8 +655,20 @@ static iteration_result destroy_texture(const hashtable_entry *entry) {
     return ITERATION_CONTINUE;
 }
 
+static iteration_result destroy_filename(void *element) {
+    free(element);
+    return ITERATION_CONTINUE;
+}
+
 void asset_manager_cleanup(asset_manager_ctx ctx) {
     if (ctx == NULL) return;
+    if (ctx->file_watcher != NULL) {
+        watchdog_destroy(ctx->file_watcher);
+    }
+    if (ctx->changed_files_queue != NULL) {
+        linked_list_foreach(ctx->changed_files_queue, destroy_filename);
+        linked_list_destroy(ctx->changed_files_queue);
+    }
     if (ctx->loaded_assets != NULL) {
         hashtable_foreach(ctx->loaded_assets, destroy_loaded_asset);
         hashtable_destroy(ctx->loaded_assets);
@@ -619,6 +684,9 @@ void asset_manager_cleanup(asset_manager_ctx ctx) {
     if (ctx->textures != NULL) {
         hashtable_foreach(ctx->textures, destroy_texture);
         hashtable_destroy(ctx->textures);
+    }
+    if (ctx->changed_files_queue_mtx_init) {
+        mtx_destroy(&ctx->changed_files_queue_mtx);
     }
     free(ctx);
 }

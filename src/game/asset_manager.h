@@ -29,6 +29,7 @@ int asset_manager_asset_unload(asset_manager_ctx, const char* asset_id);
 texture asset_manager_texture_preload(asset_manager_ctx, const char* texture_id);
 texture asset_manager_get_texture(asset_manager_ctx, const char* texture_id);
 texture_info* asset_manager_get_texture_info(asset_manager_ctx, const char* texture_id);
+void asset_manager_hot_reload_handler(asset_manager_ctx);
 void asset_manager_texture_unload(asset_manager_ctx, const char* texture_id);
 void asset_manager_cleanup(asset_manager_ctx);
 

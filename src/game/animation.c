@@ -266,7 +266,7 @@ struct render_animation_part_args_s {
     int x, y;
 };
 
-iteration_result render_animation_part(const void *element, void *_args) {
+iteration_result render_animation_part(void *element, void *_args) {
     struct render_animation_part_args_s *args = (struct render_animation_part_args_s *) _args;
     struct animation_info_s *a_info = (struct animation_info_s *) element;
     
@@ -362,6 +362,22 @@ int animation_render_bounds(animation anim, renderer_ctx ctx, int x, int y, rend
     return 0;
 }
 
+int animation_get_width(animation anim) {
+    return anim->columns * anim->texture_width;
+}
+
+int animation_get_height(animation anim) {
+    return anim->rows * anim->texture_height;
+}
+
+int animation_get_duration(animation anim) {
+    return anim->steps * anim->duration;
+}
+
+int animation_get_frame_duration(animation anim) {
+    return anim->duration;
+}
+
 int animation_load(animation anim) {
     if (load_animation_config(anim) != 0) {
         return 1;
@@ -369,7 +385,7 @@ int animation_load(animation anim) {
     return asset_manager_asset_and_textures_preload(anim->asset_mgr, anim->base_asset_id);
 }
 
-iteration_result destroy_animation_config(const void *element) {
+iteration_result destroy_animation_config(void *element) {
     struct animation_info_s *animation_info = (struct animation_info_s *) element;
     free(animation_info->prefix);
     free(animation_info);

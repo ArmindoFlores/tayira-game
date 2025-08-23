@@ -13,7 +13,7 @@ struct linked_list_s {
 };
 
 struct f_cb_s {
-    iteration_result (*f) (const void*);
+    iteration_result (*f) (void*);
 };
 
 linked_list linked_list_create() {
@@ -58,7 +58,32 @@ void *linked_list_popfront(linked_list ll) {
     return result;
 }
 
-size_t linked_list_foreach_args(linked_list ll, iteration_result (*callback) (const void* value, void* args), void* args) {
+void linked_list_remove_if(linked_list ll, predicate_function f, void *args) {
+    if (ll->head == NULL) {
+        return;
+    }
+    
+    struct linked_list_element_s *cur = ll->head, *prev = NULL;
+    while (cur != NULL) {
+        if (f(cur->value, args)) {
+            if (prev == NULL) {
+                ll->head = cur->next;
+            }
+            else {
+                prev->next = cur->next;
+            }
+            struct linked_list_element_s *tmp = cur->next;
+            free(cur);
+            cur = tmp;
+        }
+        else {
+            prev = cur;
+        }
+        cur = cur->next;
+    }
+}
+
+size_t linked_list_foreach_args(linked_list ll, iteration_result (*callback) (void* value, void* args), void* args) {
     size_t visited = 0;
     for (struct linked_list_element_s *cur = ll->head; cur != NULL; cur = cur->next) {
         iteration_result result = callback(cur->value, args);
@@ -68,12 +93,12 @@ size_t linked_list_foreach_args(linked_list ll, iteration_result (*callback) (co
     return visited;
 }
 
-static iteration_result foreach_noargs_helper(const void* value, void* args) {
+static iteration_result foreach_noargs_helper(void* value, void* args) {
     struct f_cb_s *f_cb = (struct f_cb_s *) args;
     return f_cb->f(value);
 }
 
-size_t linked_list_foreach(linked_list ll, iteration_result (*callback) (const void* value)) {
+size_t linked_list_foreach(linked_list ll, iteration_result (*callback) (void* value)) {
     struct f_cb_s f_cb = { .f = callback };
     return linked_list_foreach_args(ll, foreach_noargs_helper, &f_cb);
 }

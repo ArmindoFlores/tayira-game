@@ -515,7 +515,6 @@ int map_render(map m, renderer_ctx ctx) {
 }
 
 int map_occupied_at(map m, int x, int y) {
-    log_debug("Checking occupance at ({d}, {d})", x, y);
     if (m->collision_grid == NULL) return 0;
     if (x < 0 || y < 0 || x >= m->width || y >= m->height) return 1;
     return m->collision_grid[x + y * m->width];

@@ -11,6 +11,10 @@ int animation_render(animation, renderer_ctx, int x, int y, double time, render_
 int animation_render_bounds(animation, renderer_ctx, int x, int y, render_anchor);
 int animation_load(animation);
 int animation_unload(animation);
+int animation_get_width(animation);
+int animation_get_height(animation);
+int animation_get_duration(animation);
+int animation_get_frame_duration(animation);
 void animation_destroy(animation);
 void animation_register_log_printer();
 
