@@ -283,7 +283,7 @@ int game_key_handler(renderer_ctx ctx, int key, int, int action, int mods) {
         log_throttle_warning(1000, "No game context found");
         return 0;
     }
-    double current_time = glfwGetTime();
+    // double current_time = glfwGetTime();
 
     if (key == GLFW_KEY_F3 && action == GLFW_RELEASE && mods == 0) {
         game->debug_info = game->debug_info ? 0 : 1;

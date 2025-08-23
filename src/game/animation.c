@@ -50,6 +50,24 @@ static char *get_animation_texture_id(const char *asset_id, const char *texture_
     return texture_id;
 }
 
+static int store_animation_info(animation anim, const char *new_texture_prefix, int offset_x, int offset_y) {
+    struct animation_info_s *animation_info = (struct animation_info_s *) malloc(sizeof(struct animation_info_s));
+    if (animation_info == NULL) {
+        log_error("Failed to allocate memory while parsing animation config");
+        return 1;
+    }
+    animation_info->prefix = utils_copy_string(new_texture_prefix);
+    if (animation_info->prefix == NULL) {
+        log_error("Failed to allocate memory while parsing animation config");
+        free(animation_info);
+        return 1;
+    }
+    animation_info->offset_x = offset_x;
+    animation_info->offset_y = offset_y;
+    linked_list_pushfront(anim->anim_config, animation_info);
+    return 0;
+}
+
 static int load_animation_config(animation anim) {
     if (anim->anim_config != NULL) return 0;
 
@@ -176,7 +194,6 @@ static int load_animation_config(animation anim) {
         }
         int offset_y = (int) cJSON_GetNumberValue(texture_offset_y);
 
-
         if (anim->texture_height == -1 || anim->texture_width == -1) {
             char *texture_id = get_animation_texture_id(anim->base_asset_id, new_texture_prefix, 0);
             if (texture_id == NULL) {
@@ -195,27 +212,15 @@ static int load_animation_config(animation anim) {
             anim->texture_height = t_info->height;
             free(texture_id);
         }
-        struct animation_info_s *animation_info = (struct animation_info_s *) malloc(sizeof(struct animation_info_s));
-        if (animation_info == NULL) {
-            log_error("Failed to allocate memory while parsing animation config");
+        if (store_animation_info(anim, new_texture_prefix, offset_x, offset_y) != 0) {
             cJSON_Delete(config_json);
             return 1;
         }
-        animation_info->prefix = utils_copy_string(new_texture_prefix);
-        if (animation_info->prefix == NULL) {
-            log_error("Failed to allocate memory while parsing animation config");
-            free(animation_info);
-            cJSON_Delete(config_json);
-            return 1;
-        }
-        animation_info->offset_x = offset_x;
-        animation_info->offset_y = offset_y;
-        linked_list_pushfront(anim->anim_config, animation_info);
     }
 
     anim->duration = anim->steps * anim->interval;
     
-    anim->texture_id_buffer_size = get_animation_texture_id_length(anim->base_asset_id, texture_prefix, anim->steps) + 1;
+    anim->texture_id_buffer_size = get_animation_texture_id_length(anim->base_asset_id, texture_prefix == NULL ? "" : texture_prefix, anim->steps) + 1;
     anim->texture_id_buffer = (char*) calloc(anim->texture_id_buffer_size, sizeof(char));
     if (anim->texture_id_buffer == NULL) {
         cJSON_Delete(config_json);

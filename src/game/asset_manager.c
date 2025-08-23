@@ -47,7 +47,10 @@ static void track_for_hot_reload(asset_manager_ctx ctx, const char *filename, co
     file_record_info *fr_info = (file_record_info *) malloc(sizeof(file_record_info));
     if (fr_info == NULL) return;
     fr_info->key = utils_copy_string(key);
-    if (fr_info->key == NULL) return;
+    if (fr_info->key == NULL) {
+        free(fr_info);
+        return;
+    }
     fr_info->type = type;
     if (hashtable_set(ctx->file_record, filename, fr_info) != 0) {
         free(fr_info->key);

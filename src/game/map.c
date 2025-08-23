@@ -272,11 +272,13 @@ static int load_inner_map_config(map m, const char *partial_path) {
         if (cJSON_IsTrue(layer_collisions)) {
             if (m->collision_grid) {
                 log_warning("More than on collision grid defined");
+                free(grid);
                 continue;
             }
 
             if (populate_grid(layer_map, grid, &largest_texture_id) != 0) {
                 cJSON_Delete(map_config);
+                free(grid);
                 return 1;
             }
 
