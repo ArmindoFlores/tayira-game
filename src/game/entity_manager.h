@@ -16,6 +16,7 @@ entity entity_manager_load_entity(entity_manager_ctx, const char *entity_id);
 void entity_manager_unload_entity(entity_manager_ctx, const char *entity_id);
 void entity_manager_cleanup(entity_manager_ctx);
 
+entity entity_copy(entity);
 int entity_render(entity, renderer_ctx, double t);
 void entity_set_position(entity, int x, int y);
 entity_position entity_get_position(entity);
@@ -26,5 +27,6 @@ direction entity_get_facing(entity);
 void entity_set_moving(entity, int moving);
 int entity_is_moving(entity);
 const char *entity_get_id(entity);
+void entity_destroy(entity);
 
 #endif

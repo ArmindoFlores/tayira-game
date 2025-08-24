@@ -4,15 +4,15 @@
         {
             "id": "simple-goblin",
             "position": {
-                "x": 17,
-                "y": 8
+                "x": 18,
+                "y": 10
             }
         },
         {
             "id": "simple-goblin",
             "position": {
-                "x": 18,
-                "y": 8
+                "x": 19,
+                "y": 11
             }
         }
     ]

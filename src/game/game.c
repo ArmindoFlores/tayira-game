@@ -123,7 +123,7 @@ game_ctx game_context_init() {
     return game;
 }
 
-static void game_render(game_ctx game, renderer_ctx ctx, double, double t) {
+static void game_render(game_ctx game, renderer_ctx ctx, double dt, double t) {
     if (level_render(game->current_level, ctx, t) != 0) {
         log_throttle_warning(5000, "Failed to render level");
     }
@@ -190,7 +190,7 @@ static void game_render(game_ctx game, renderer_ctx ctx, double, double t) {
             buffer, 
             sizeof(buffer) - 1, 
             "FPS: %d\nDraw calls: %lu\nInstances: %lu", 
-            (int)(1.0 / (t > 0.0 ? t : 1.0)),
+            (int)(1.0 / (dt > 0.0 ? dt : 1.0)),
             stats.draw_calls, 
             stats.drawn_instances
         );
@@ -208,12 +208,6 @@ static void game_render(game_ctx game, renderer_ctx ctx, double, double t) {
         else {
             log_warning("Failed to write to buffer");
         }
-        // for (int y = 0; y < 20; y++) {
-        //     renderer_draw_line(ctx, 0.0f, y * 16.0f, 30.0f * 16.0f, y * 16.0f, (color_rgb) { .r = 1.0f, .g = 1.0f, .b = 1.0f }, 1);
-        // }
-        // for (int x = 0; x < 30; x++) {
-        //     renderer_draw_line(ctx, x * 16.0f, 0.0f, x * 16.0f, 20.0f * 16.0f, (color_rgb) { .r = 1.0f, .g = 1.0f, .b = 1.0f }, 1);
-        // }
     }
 }
 
@@ -287,7 +281,7 @@ int game_update_handler(renderer_ctx ctx, double dt, double t) {
     }
     const double alpha = accumulator / FIXED_DT;
 
-    game_render(game, ctx, alpha, t);
+    game_render(game, ctx, dt, t);
     asset_manager_hot_reload_handler(game->asset_mgr);
 
     return 0;

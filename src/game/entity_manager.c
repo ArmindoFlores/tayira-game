@@ -297,7 +297,8 @@ entity entity_manager_load_entity(entity_manager_ctx ctx, const char *entity_id)
     ref_counted_entity *rc_entity = (ref_counted_entity *) hashtable_get(ctx->entities, entity_id);
     if (rc_entity != NULL) {
         rc_entity->ref_count++;
-        return rc_entity->entity;
+        // We still return a new entity; the cache only caches the config
+        return entity_copy(rc_entity->entity);
     }
 
     // No entity in the cache, so we must load it
@@ -320,7 +321,7 @@ entity entity_manager_load_entity(entity_manager_ctx ctx, const char *entity_id)
     }
     rc_new_entity->ref_count = 1;
     log_debug("Loaded entity '{s}'", entity_id);
-    return rc_new_entity->entity;
+    return entity_copy(rc_new_entity->entity);
 }
 
 void entity_manager_unload_entity(entity_manager_ctx ctx, const char *entity_id) {
@@ -412,6 +413,106 @@ entity entity_create(const char* entity_id) {
     }
 
     return e;
+}
+
+struct clone_entity_args_s {
+    int *result;
+    entity e;
+};
+
+static iteration_result clone_entity_state_map(const hashtable_entry *entry, void *_args) {
+    struct clone_entity_args_s *args = (struct clone_entity_args_s *) _args;
+    state_map_entry *sm_entry = (state_map_entry *) entry->value;
+    
+    state_map_entry *new_sm_entry = (state_map_entry *) calloc(1, sizeof(state_map_entry));
+    if (new_sm_entry == NULL) {
+        *args->result = 1;
+        return ITERATION_BREAK;
+    }
+
+    new_sm_entry->states = (entity_action *) calloc(sm_entry->entry_size, sizeof(entity_action));
+    if (new_sm_entry->states == NULL) {
+        *args->result = 1;
+        free(new_sm_entry);
+        return ITERATION_BREAK;
+    }
+
+    for (size_t i = 0; i < sm_entry->entry_size; i++) {
+        new_sm_entry->states[i].direction = sm_entry->states[i].direction;
+        new_sm_entry->states[i].clip = utils_copy_string(sm_entry->states[i].clip);
+        if (new_sm_entry->states[i].clip == NULL) {
+            *args->result = 1;
+            // Free all past allocated strings
+            for (size_t j = 0; j < i; j++) {
+                free(new_sm_entry->states[j].clip);
+            }
+            free(new_sm_entry->states);
+            free(new_sm_entry);
+            return ITERATION_BREAK;
+        }
+        new_sm_entry->entry_size++;
+    }
+
+    if (hashtable_set(args->e->state_map, entry->key, new_sm_entry) != 0) {
+        *args->result = 1;
+        for (size_t i = 0; i < new_sm_entry->entry_size; i++) {
+            free(new_sm_entry->states[i].clip);
+        }
+        free(new_sm_entry->states);
+        free(new_sm_entry);
+        return ITERATION_BREAK;
+    }
+
+    return ITERATION_CONTINUE;
+}
+
+static iteration_result clone_entity_animations(const hashtable_entry *entry, void *_args) {
+    struct clone_entity_args_s *args = (struct clone_entity_args_s *) _args;
+    animation anim = (animation) entry->value;
+    animation clone = animation_copy(anim);
+    if (clone == NULL) {
+        *args->result = 1;
+        return ITERATION_BREAK;
+    }
+    if (hashtable_set(args->e->animations, entry->key, clone) != 0) {
+        *args->result = 1;
+        animation_destroy(clone);
+        return ITERATION_BREAK;
+    }
+    return ITERATION_CONTINUE;
+}
+
+entity entity_copy(entity e) {
+    entity new_entity = entity_create(e->entity_id);
+    if (new_entity == NULL) {
+        return NULL;
+    }
+
+    new_entity->state = e->state;
+
+    int result = 0;
+    struct clone_entity_args_s clone_entity_args = {
+        .e = new_entity,
+        .result = &result
+    };
+
+    // Copy e->state_map
+    hashtable_foreach_args(e->state_map, clone_entity_state_map, &clone_entity_args);
+
+    if (result != 0) {
+        entity_destroy(new_entity);
+        return NULL;
+    }
+
+    // Copy e->animations
+    hashtable_foreach_args(e->animations, clone_entity_animations, &clone_entity_args);
+
+    if (result != 0) {
+        entity_destroy(new_entity);
+        return NULL;
+    }
+
+    return new_entity;
 }
 
 static animation entity_get_animation_from_state(entity e) {

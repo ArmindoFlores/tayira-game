@@ -264,6 +264,19 @@ animation animation_create(asset_manager_ctx ctx, const char *asset_id, const ch
     return anim;
 }
 
+animation animation_copy(animation anim) {
+    animation clone = animation_create(anim->asset_mgr, anim->base_asset_id, anim->variant);
+    if (anim->anim_config != NULL) {
+        //FIXME: We should just copy it, like we do for entities    
+        if (animation_load(clone) != 0) {
+            animation_destroy(clone);
+            return NULL;
+        }
+    }
+    clone->start = anim->start;
+    return clone;
+}
+
 struct render_animation_part_args_s {
     animation anim;
     renderer_ctx ctx;

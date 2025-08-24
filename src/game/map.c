@@ -455,6 +455,7 @@ static texture get_texture_from_id(map m, int id) {
 
 struct draw_map_grid_args_s {
     unsigned int base_layer, *max_nonplayer_layer;
+    unsigned int entity_layer_offset;
     int transparent;
     map map;
     renderer_ctx renderer;
@@ -474,8 +475,12 @@ static iteration_result draw_map_grid(const hashtable_entry* entry, void *_args)
             *args->max_nonplayer_layer = real_layer;
         }
     }
+    else {
+        real_layer += args->entity_layer_offset;
+    }
 
     renderer_set_layer(args->renderer, args->base_layer + real_layer);
+    log_debug("Drawing map at layer {lu}", args->base_layer + real_layer);
     for (int row = 0; row < args->map->height; row++) {
         for (int col = 0; col < args->map->width; col++) {
             int grid_value = grid_info->grid[row * args->map->width + col];
@@ -495,12 +500,13 @@ static iteration_result draw_map_grid(const hashtable_entry* entry, void *_args)
     return ITERATION_CONTINUE;
 }
 
-int map_render(map m, renderer_ctx ctx) {
+int map_render(map m, renderer_ctx ctx, unsigned int entity_layer_offset) {
     unsigned int base_layer = renderer_get_layer(ctx);
     unsigned int max_nonplayer_layer = 0;
     struct draw_map_grid_args_s draw_map_grid_args = {
         .base_layer = base_layer,
         .max_nonplayer_layer = &max_nonplayer_layer,
+        .entity_layer_offset = entity_layer_offset,
         .transparent = 0,
         .map = m,
         .renderer = ctx

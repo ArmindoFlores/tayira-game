@@ -227,27 +227,41 @@ struct render_entity_args_s {
     int *result;
     double t;
     renderer_ctx renderer;
+    unsigned int base_layer, *max_y;
 };
 
 static iteration_result render_entity(void *_value, void *_args) {
     struct render_entity_args_s *args = (struct render_entity_args_s *) _args;
     entity value = (entity) _value;
     
+    // FIXME: what if the entity is not visible? what if the first y > 0?
+    // TODO: just order entities based on y and increment layer as we go
+    unsigned int y = entity_get_position(value).y;
+    renderer_set_layer(args->renderer, args->base_layer + y);
+    log_debug("layer for entity '{s}': {lu}", entity_get_id(value), args->base_layer + y);
     if (entity_render(value, args->renderer, args->t) != 0) {
         *args->result = 1;
+    }
+    if (y > *args->max_y) {
+        *args->max_y = y;
     }
     return ITERATION_CONTINUE;
 }
 
 int level_render(level l, renderer_ctx ctx, double t) {
-    int map_result = map_render(l->map, ctx);
     int entity_result = 0;
+    unsigned int base_layer = renderer_get_layer(ctx), max_y = 0;
     struct render_entity_args_s render_entity_args = {
         .result = &entity_result,
         .renderer = ctx,
-        .t = t
+        .t = t,
+        .base_layer = base_layer,
+        .max_y = &max_y
     };
+    renderer_set_blend_mode(ctx, BLEND_MODE_BINARY);
     linked_list_foreach_args(l->entities, render_entity, &render_entity_args);
+    renderer_set_layer(ctx, base_layer);
+    int map_result = map_render(l->map, ctx, max_y);
     return map_result != 0 && entity_result != 0;
 }
 
@@ -263,6 +277,7 @@ static iteration_result destroy_entity(void *_value, void *args) {
     entity value = _value;
     entity_manager_ctx entity_mgr = args;
     entity_manager_unload_entity(entity_mgr, entity_get_id(value));
+    entity_destroy(value);
     return ITERATION_CONTINUE;   
 }
 
