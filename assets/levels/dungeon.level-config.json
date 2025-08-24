@@ -1,0 +1,19 @@
+{
+    "map": "dungeon",
+    "entities": [
+        {
+            "id": "simple-goblin",
+            "position": {
+                "x": 17,
+                "y": 8
+            }
+        },
+        {
+            "id": "simple-goblin",
+            "position": {
+                "x": 18,
+                "y": 8
+            }
+        }
+    ]
+}

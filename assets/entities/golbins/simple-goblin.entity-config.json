@@ -1,0 +1,30 @@
+{
+    "name": "Goblin",
+    "base_attributes": {
+        "str": 8,
+        "dex": 14,
+        "con": 10,
+        "int": 10,
+        "wis": 8,
+        "cha": 8,
+        "ac": 10,
+        "level": 2
+    },
+    "sprites": {
+        "clips": {
+            "idle_down":  { "animation": "goblin_idle_full", "variant": "down" },
+            "idle_up":    { "animation": "goblin_idle_full", "variant": "up" },
+            "idle_right": { "animation": "goblin_idle_full", "variant": "right" },
+            "idle_left":  { "animation": "goblin_idle_full", "variant": "left" },
+            "walk_down":  { "animation": "goblin_walk_full", "variant": "down" },
+            "walk_up":    { "animation": "goblin_walk_full", "variant": "up" },
+            "walk_right": { "animation": "goblin_walk_full", "variant": "right" },
+            "walk_left":  { "animation": "goblin_walk_full", "variant": "left" }
+        },
+        "state_map": {
+            "idle": { "down": "idle_down", "up": "idle_up", "right": "idle_right", "left": "idle_left" },
+            "walk": { "down": "walk_down", "up": "walk_up", "right": "walk_right", "left": "walk_left" },
+            "*": { "any": "idle_down" }
+        }
+    }
+}

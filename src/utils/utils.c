@@ -1,5 +1,5 @@
 #include "utils.h"
-
+#include "logger/logger.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -42,4 +42,26 @@ char *utils_copy_string(const char *string) {
 
 int utils_digit_length(size_t n) {
     return snprintf(NULL, 0, "%lu", n);
+}
+
+cJSON *utils_read_base_config(const char *config_file_name) {
+    char *config_contents = utils_read_whole_file(config_file_name);
+    if (config_contents == NULL) {
+        log_error("Failed to read base config file '{s}'", config_file_name);
+        return NULL;
+    }
+    cJSON *config_json = cJSON_Parse(config_contents);
+    free(config_contents);
+    if (config_json == NULL) {
+        log_error("Failed to parse base config file '{s}'", config_file_name);
+        return NULL;
+    }
+
+    if (!cJSON_IsObject(config_json)) {
+        log_error("Failed to parse base config file '{s}': must be an object", config_file_name);
+        cJSON_Delete(config_json);
+        return NULL;
+    }
+
+    return config_json;
 }

@@ -2,7 +2,7 @@
 #include "asset_manager.h"
 #include "animation.h"
 #include "font.h"
-#include "map.h"
+#include "level.h"
 #include "logger/logger.h"
 #include "GLFW/glfw3.h"
 #include <stdlib.h>
@@ -25,7 +25,7 @@ struct game_ctx_s {
     animation anim_walk_down, anim_walk_up, anim_walk_right, anim_walk_left;
     animation anim_idle_down, anim_idle_up, anim_idle_right, anim_idle_left;
 
-    map dungeon_map;
+    level dungeon_level;
 
     mtx_t lock;
 };
@@ -84,14 +84,14 @@ game_ctx game_context_init() {
         return NULL;
     }
 
-    game->dungeon_map = map_create(game->asset_mgr, "dungeon");
-    if (game->dungeon_map == NULL) {
+    game->dungeon_level = level_create(game->asset_mgr, "dungeon");
+    if (game->dungeon_level == NULL) {
         game_context_cleanup(game);
         return NULL;
     }
 
     // Pre-load map
-    map_load(game->dungeon_map);
+    level_load(game->dungeon_level);
     
     // Pre-load animations
     animation_load(game->anim_walk_down);
@@ -110,7 +110,7 @@ game_ctx game_context_init() {
 }
 
 static void game_render(game_ctx game, renderer_ctx ctx, double, double t) {
-    map_render(game->dungeon_map, ctx);
+    level_render(game->dungeon_level, ctx);
 
     renderer_set_blend_mode(ctx, BLEND_MODE_BINARY);
     renderer_increment_layer(ctx);
@@ -232,7 +232,7 @@ static void game_step(game_ctx game, double dt, double t) {
                 break;
         }
 
-        if (!map_occupied_at(game->dungeon_map, next_x / 16, next_y / 16)) {
+        if (!map_occupied_at(level_get_map(game->dungeon_level), next_x / 16, next_y / 16)) {
             game->player_moving = 1;
             game->start_move_pos = (int) (game->player_direction == DIRECTION_DOWN || game->player_direction == DIRECTION_UP ? game->player_position.y : game->player_position.x);
         }
@@ -342,7 +342,7 @@ void game_context_cleanup(game_ctx ctx) {
     if (ctx->anim_idle_up != NULL) animation_destroy(ctx->anim_idle_up);
     if (ctx->anim_idle_left != NULL) animation_destroy(ctx->anim_idle_left);
     if (ctx->anim_idle_right != NULL) animation_destroy(ctx->anim_idle_right);
-    if (ctx->dungeon_map != NULL) map_destroy(ctx->dungeon_map);
+    if (ctx->dungeon_level != NULL) level_destroy(ctx->dungeon_level);
     if (ctx->asset_mgr != NULL) asset_manager_cleanup(ctx->asset_mgr);
     mtx_destroy(&ctx->lock);
     free(ctx);
