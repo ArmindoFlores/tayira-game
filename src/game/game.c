@@ -2,7 +2,7 @@
 #include "asset_manager.h"
 #include "animation.h"
 #include "font.h"
-#include "level.h"
+#include "level_manager.h"
 #include "logger/logger.h"
 #include "GLFW/glfw3.h"
 #include <stdlib.h>
@@ -12,8 +12,11 @@
 struct game_ctx_s {
     int debug_info;
     int level;
-    asset_manager_ctx asset_mgr;
     font base_font_16;
+    
+    asset_manager_ctx asset_mgr;
+    entity_manager_ctx entity_mgr;
+    level_manager_ctx level_mgr;
 
     int player_moving;
     double player_started_moving_at;
@@ -25,7 +28,7 @@ struct game_ctx_s {
     animation anim_walk_down, anim_walk_up, anim_walk_right, anim_walk_left;
     animation anim_idle_down, anim_idle_up, anim_idle_right, anim_idle_left;
 
-    level dungeon_level;
+    level current_level;
 
     mtx_t lock;
 };
@@ -50,8 +53,21 @@ game_ctx game_context_init() {
     game->player_direction = DIRECTION_RIGHT;
     game->player_position = (position_vec) { .x = 23.5 * 16.0f, .y = 13.5 * 16.0f };
     game->debug_info = 0;
+
     game->asset_mgr = asset_manager_init();
     if (game->asset_mgr == NULL) {
+        game_context_cleanup(game);
+        return NULL;
+    }
+
+    game->entity_mgr = entity_manager_init(game->asset_mgr);
+    if (game->entity_mgr == NULL) {
+        game_context_cleanup(game);
+        return NULL;
+    }
+
+    game->level_mgr = level_manager_init(game->asset_mgr, game->entity_mgr);
+    if (game->level_mgr == NULL) {
         game_context_cleanup(game);
         return NULL;
     }
@@ -84,14 +100,12 @@ game_ctx game_context_init() {
         return NULL;
     }
 
-    game->dungeon_level = level_create(game->asset_mgr, "dungeon");
-    if (game->dungeon_level == NULL) {
+    // Pre-load level
+    game->current_level = level_manager_load_level(game->level_mgr, "dungeon");
+    if (game->current_level == NULL) {
         game_context_cleanup(game);
         return NULL;
     }
-
-    // Pre-load map
-    level_load(game->dungeon_level);
     
     // Pre-load animations
     animation_load(game->anim_walk_down);
@@ -110,7 +124,9 @@ game_ctx game_context_init() {
 }
 
 static void game_render(game_ctx game, renderer_ctx ctx, double, double t) {
-    level_render(game->dungeon_level, ctx);
+    if (level_render(game->current_level, ctx, t) != 0) {
+        log_throttle_warning(5000, "Failed to render level");
+    }
 
     renderer_set_blend_mode(ctx, BLEND_MODE_BINARY);
     renderer_increment_layer(ctx);
@@ -232,7 +248,7 @@ static void game_step(game_ctx game, double dt, double t) {
                 break;
         }
 
-        if (!map_occupied_at(level_get_map(game->dungeon_level), next_x / 16, next_y / 16)) {
+        if (!map_occupied_at(level_get_map(game->current_level), next_x / 16, next_y / 16)) {
             game->player_moving = 1;
             game->start_move_pos = (int) (game->player_direction == DIRECTION_DOWN || game->player_direction == DIRECTION_UP ? game->player_position.y : game->player_position.x);
         }
@@ -342,7 +358,9 @@ void game_context_cleanup(game_ctx ctx) {
     if (ctx->anim_idle_up != NULL) animation_destroy(ctx->anim_idle_up);
     if (ctx->anim_idle_left != NULL) animation_destroy(ctx->anim_idle_left);
     if (ctx->anim_idle_right != NULL) animation_destroy(ctx->anim_idle_right);
-    if (ctx->dungeon_level != NULL) level_destroy(ctx->dungeon_level);
+    if (ctx->current_level != NULL) level_destroy(ctx->current_level);
+    if (ctx->level_mgr != NULL) level_manager_cleanup(ctx->level_mgr);
+    if (ctx->entity_mgr != NULL) entity_manager_cleanup(ctx->entity_mgr);
     if (ctx->asset_mgr != NULL) asset_manager_cleanup(ctx->asset_mgr);
     mtx_destroy(&ctx->lock);
     free(ctx);

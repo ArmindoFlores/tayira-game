@@ -1,7 +1,5 @@
 #include "entity_manager.h"
 #include "animation.h"
-#include "asset_manager.h"
-#include "config.h"
 #include "cjson/cJSON.h"
 #include "utils/utils.h"
 #include "logger/logger.h"
@@ -13,6 +11,9 @@
 
 #define LOAD_FAIL(...) do { log_error(__VA_ARGS__); return_value = 1; goto cleanup; } while (0)
 
+entity entity_create(const char* entity_id);
+void entity_destroy(entity);
+
 struct entity_manager_ctx_s {
     asset_manager_ctx asset_mgr;
     hashtable entity_config;
@@ -21,17 +22,30 @@ struct entity_manager_ctx_s {
 
 typedef struct entity_action {
     direction direction;
-    const char *clip;
+    char *clip;
 } entity_action;
+
+typedef struct entity_state {
+    int moving, visible;
+    entity_position position;
+    direction facing;
+} entity_state;
+
+typedef struct state_map_entry {
+    size_t entry_size;
+    entity_action *states;
+} state_map_entry;
 
 struct entity_s {
     char *name;
     char *entity_id;
 
     hashtable animations;
-    hashtable actions;
+    hashtable state_map;
 
     base_attributes base_attributes;
+
+    entity_state state;
 };
 
 typedef struct ref_counted_entity {
@@ -92,7 +106,7 @@ static int load_entity_base_attributes(entity e, cJSON *entity_config) {
     cJSON *intelligence = cJSON_GetObjectItem(base_attributes, "int");
     cJSON *wisdom = cJSON_GetObjectItem(base_attributes, "wis");
     cJSON *charisma = cJSON_GetObjectItem(base_attributes, "cha");
-    cJSON *armor_class = cJSON_GetObjectItem(base_attributes, "cv");
+    cJSON *armor_class = cJSON_GetObjectItem(base_attributes, "ac");
     cJSON *level = cJSON_GetObjectItem(base_attributes, "level");
 
     if (strength == NULL || !cJSON_IsNumber(strength)) { log_error("Failed to parse config for entity '{s}': base_attributes.str must be a number", e->entity_id); return 1; }
@@ -116,7 +130,7 @@ static int load_entity_base_attributes(entity e, cJSON *entity_config) {
     return 0;
 }
 
-static entity_action *load_entity_sprite_state_map_action(entity e, cJSON *direction_config) {
+static entity_action *load_entity_sprite_state_map_action(entity e, cJSON *direction_config, entity_action* action) {
     direction d = DIRECTION_NONE;
     if (strcmp(direction_config->string, "down") == 0) {
         d = DIRECTION_DOWN;
@@ -130,6 +144,9 @@ static entity_action *load_entity_sprite_state_map_action(entity e, cJSON *direc
     else if (strcmp(direction_config->string, "right") == 0) {
         d = DIRECTION_RIGHT;
     }
+    else if (strcmp(direction_config->string, "any") == 0) {
+        d = DIRECTION_NONE;
+    }
     else {
         log_error("Failed to parse config for entity '{s}': keys of sprites.state_map.* must be one of the following: down, up, left, right, any", e->entity_id);
         return NULL;
@@ -140,16 +157,10 @@ static entity_action *load_entity_sprite_state_map_action(entity e, cJSON *direc
         return NULL;
     }
 
-    entity_action *action = (entity_action *) malloc(sizeof(entity_action));
-    if (action == NULL) {
-        log_error("Failed to allocate memory during parsing of entity config");
-        return NULL;
-    }
     action->direction = d;
     action->clip = utils_copy_string(cJSON_GetStringValue(direction_config));
     if (action->clip == NULL) {
         log_error("Failed to allocate memory during parsing of entity config");
-        free(action);
         return NULL;
     }
     return action;
@@ -157,24 +168,42 @@ static entity_action *load_entity_sprite_state_map_action(entity e, cJSON *direc
 
 static int load_entity_sprite_state_map(entity e, cJSON *sprites) {
     int return_value = 0;
-    entity_action *action = NULL;
+    state_map_entry *sm_entry = NULL;
 
     cJSON *state_map = cJSON_GetObjectItem(sprites, "state_map");
     if (state_map == NULL || !cJSON_IsObject(state_map)) LOAD_FAIL("Failed to parse config for entity '{s}': sprites.state_map must be an object");
 
     cJSON *state_config = NULL;
     cJSON_ArrayForEach(state_config, state_map) {
+        if (!cJSON_IsObject(state_config)) LOAD_FAIL("Failed to parse config for entity '{s}': sprites.state_map.* must be an object");
         cJSON *direction_config = NULL;
+
+        sm_entry = (state_map_entry*) calloc(1, sizeof(state_map_entry));
+        size_t sm_entry_size = (size_t) cJSON_GetArraySize(state_config);
+        if (sm_entry == NULL) LOAD_FAIL("Failed to allocate memory during parsing of entity config");
+
+        sm_entry->states = (entity_action *) calloc(sm_entry_size, sizeof(entity_action));
+        if (sm_entry->states == NULL) LOAD_FAIL("Failed to allocate memory during parsing of entity config");
+
+        size_t i = 0;
         cJSON_ArrayForEach(direction_config, state_config) {
-            entity_action *action = load_entity_sprite_state_map_action(e, direction_config);
+            entity_action *action = load_entity_sprite_state_map_action(e, direction_config, &sm_entry->states[i++]);
             if (action == NULL) { return_value = 1; goto cleanup; }
-            if (hashtable_set(e->actions, direction_config->string, action) != 0) LOAD_FAIL("Failed to save entity config");
-            action = NULL;
+            sm_entry->entry_size++;
         }
+
+        if (hashtable_set(e->state_map, state_config->string, sm_entry) != 0) LOAD_FAIL("Failed to save entity config");
+        sm_entry = NULL;
     }
 
 cleanup:
-    free(action);
+    if (sm_entry != NULL) {
+        for (size_t i = 0; i < sm_entry->entry_size; i++) {
+            free(sm_entry->states[i].clip);
+        }
+        free(sm_entry->states);
+        free(sm_entry);
+    }
     return return_value;
 }
 
@@ -183,15 +212,15 @@ static int load_entity_sprite_clips(entity_manager_ctx ctx, entity e, cJSON *spr
     animation anim = NULL;
 
     cJSON *clips = cJSON_GetObjectItem(sprites, "clips");
-    if (clips == NULL || !cJSON_IsObject(clips)) LOAD_FAIL("Failed to parse config for entity '{s}': sprites.clips must be an object");
+    if (clips == NULL || !cJSON_IsObject(clips)) LOAD_FAIL("Failed to parse config for entity '{s}': sprites.clips must be an object", e->entity_id);
 
     cJSON *animation_config = NULL;
     cJSON_ArrayForEach(animation_config, clips) {
-        cJSON *animation_id = cJSON_GetObjectItem(sprites, "animation");
-        if (animation_id == NULL || !cJSON_IsString(animation_id)) LOAD_FAIL("Failed to parse config for entity '{s}': sprites.clips.*.animation must be a string");
+        cJSON *animation_id = cJSON_GetObjectItem(animation_config, "animation");
+        if (animation_id == NULL || !cJSON_IsString(animation_id)) LOAD_FAIL("Failed to parse config for entity '{s}': sprites.clips.*.animation must be a string", e->entity_id);
 
-        cJSON *variant = cJSON_GetObjectItem(sprites, "variant");
-        if (variant == NULL || !cJSON_IsString(variant)) LOAD_FAIL("Failed to parse config for entity '{s}': sprites.clips.*.variant must be a string");
+        cJSON *variant = cJSON_GetObjectItem(animation_config, "variant");
+        if (variant == NULL || !cJSON_IsString(variant)) LOAD_FAIL("Failed to parse config for entity '{s}': sprites.clips.*.variant must be a string", e->entity_id);
         
         anim = animation_create(
             ctx->asset_mgr, 
@@ -199,9 +228,12 @@ static int load_entity_sprite_clips(entity_manager_ctx ctx, entity e, cJSON *spr
             cJSON_GetStringValue(variant)
         );
 
-        if (anim == NULL) LOAD_FAIL("Failed to create animation for entity '{s}'");
+        if (anim == NULL) LOAD_FAIL("Failed to create animation for entity '{s}'", e->entity_id);
 
-        if (hashtable_set(e->animations, animation_config->string, anim) != 0) LOAD_FAIL("Failed to save animation for entity '{s}'");
+        // Should we load all animations eagerly like this?
+        if (animation_load(anim) != 0) LOAD_FAIL("Failed to load animation for entity '{s}'", e->entity_id);
+
+        if (hashtable_set(e->animations, animation_config->string, anim) != 0) LOAD_FAIL("Failed to save animation for entity '{s}'", e->entity_id);
         anim = NULL;
     }
 
@@ -213,7 +245,7 @@ cleanup:
 static int load_entity_sprites(entity_manager_ctx ctx, entity e, cJSON *entity_config) {
     cJSON *sprites = cJSON_GetObjectItem(entity_config, "sprites");
     if (sprites == NULL || !cJSON_IsObject(sprites)) {
-        log_error("Failed to parse config for entity '{s}': sprites must be an object");
+        log_error("Failed to parse config for entity '{s}': sprites must be an object", e->entity_id);
         return 1;
     }
 
@@ -228,7 +260,7 @@ static entity load_entity(entity_manager_ctx ctx, const char *entity_id) {
     cJSON *entity_config = NULL;
     entity result = NULL;
 
-    char *partial_path = hashtable_get(ctx->entities, entity_id);
+    char *partial_path = hashtable_get(ctx->entity_config, entity_id);
     if (partial_path == NULL) LOAD_FAIL("Unknown entity '{s}'", entity_id);
 
     fullpath = get_entity_path(partial_path);
@@ -241,13 +273,12 @@ static entity load_entity(entity_manager_ctx ctx, const char *entity_id) {
     if (entity_config == NULL) LOAD_FAIL("Failed to parse config for entity '{s}'", entity_id);
     if (!cJSON_IsObject(entity_config)) LOAD_FAIL("Failed to parse config for entity '{s}': config must be an object", entity_id);
 
-    result = (entity) calloc(1, sizeof(struct entity_s));
-    result->entity_id = utils_copy_string(entity_id);
-    if (result->entity_id == NULL) LOAD_FAIL("Failed to allocate memory during parsing of entity config");
+    result = entity_create(entity_id);
+    if (result == NULL) LOAD_FAIL("Failed to allocate memory during parsing of entity config");
 
     cJSON *entity_name = cJSON_GetObjectItem(entity_config, "name");
     if (entity_name == NULL || !cJSON_IsString(entity_name)) LOAD_FAIL("Failed to parse config for entity '{s}': name must be a string", entity_id);
-    result->name = utils_copy_string(entity_id);
+    result->name = utils_copy_string(cJSON_GetStringValue(entity_name));
     if (result->name == NULL) LOAD_FAIL("Failed to allocate memory during parsing of entity config");
 
     if (load_entity_base_attributes(result, entity_config) != 0) { return_value = 1; goto cleanup; }
@@ -257,7 +288,7 @@ cleanup:
     free(fullpath);
     free(config_contents);
     cJSON_Delete(entity_config);
-    if (result != NULL) entity_destroy(result);
+    if (result != NULL && return_value != 0) entity_destroy(result);
     return return_value == 0 ? result : NULL;
 }
 
@@ -265,6 +296,7 @@ entity entity_manager_load_entity(entity_manager_ctx ctx, const char *entity_id)
     // Check for a cached entity
     ref_counted_entity *rc_entity = (ref_counted_entity *) hashtable_get(ctx->entities, entity_id);
     if (rc_entity != NULL) {
+        rc_entity->ref_count++;
         return rc_entity->entity;
     }
 
@@ -287,7 +319,7 @@ entity entity_manager_load_entity(entity_manager_ctx ctx, const char *entity_id)
         return NULL;
     }
     rc_new_entity->ref_count = 1;
-
+    log_debug("Loaded entity '{s}'", entity_id);
     return rc_new_entity->entity;
 }
 
@@ -301,15 +333,17 @@ void entity_manager_unload_entity(entity_manager_ctx ctx, const char *entity_id)
         return;
     }
     hashtable_delete(ctx->entities, entity_id);
+    log_debug("Unloaded entity '{s}'", entity_id);
     entity_destroy(rc_entity->entity);
     free(rc_entity);
 }
 
-entity_manager_ctx entity_manager_init() {
+entity_manager_ctx entity_manager_init(asset_manager_ctx asset_mgr) {
     entity_manager_ctx ctx = (entity_manager_ctx) calloc(1, sizeof(struct entity_manager_ctx_s));
     if (ctx == NULL) {
         return NULL;
     }
+    ctx->asset_mgr = asset_mgr;
     ctx->entities = hashtable_create();
     if (ctx->entities == NULL) {
         entity_manager_cleanup(ctx);
@@ -352,12 +386,139 @@ void entity_manager_cleanup(entity_manager_ctx ctx) {
     free(ctx);
 }
 
+entity entity_create(const char* entity_id) {
+    entity e = (entity) calloc(1, sizeof(struct entity_s));
+    if (e == NULL) {
+        return NULL;
+    }
+
+    e->state.facing = DIRECTION_DOWN;
+    e->entity_id = utils_copy_string(entity_id);
+    if (e->entity_id == NULL) {
+        entity_destroy(e);
+        return NULL;
+    }
+
+    e->state_map = hashtable_create();
+    if (e->state_map == NULL) {
+        entity_destroy(e);
+        return NULL;
+    }
+
+    e->animations = hashtable_create();
+    if (e->animations == NULL) {
+        entity_destroy(e);
+        return NULL;
+    }
+
+    return e;
+}
+
+static animation entity_get_animation_from_state(entity e) {
+    char *move_state = e->state.moving ? "walk": "idle";
+    state_map_entry *entry = hashtable_get(e->state_map, move_state);
+    if (entry == NULL) {
+        entry = hashtable_get(e->state_map, "*");
+        if (entry == NULL) {
+            return NULL;
+        }
+    }
+    char *any_fallback_clip = NULL, *result_clip = NULL;
+    for (size_t i = 0; i < entry->entry_size; i++) {
+        entity_action *action = &entry->states[i];
+        if (action->direction == DIRECTION_NONE) {
+            any_fallback_clip = action->clip;
+        }
+        else if (action->direction == e->state.facing) {
+            result_clip = action->clip;
+            break;
+        }
+    }
+    char *clip = result_clip != NULL ? result_clip : any_fallback_clip;
+    if (clip == NULL) {
+        return NULL;
+    } 
+    return hashtable_get(e->animations, clip);
+}
+
+int entity_render(entity e, renderer_ctx renderer, double t) {
+    animation current_anim = entity_get_animation_from_state(e);
+    if (current_anim == NULL) return 1;
+
+    int x = e->state.position.x * 16;
+    int y = e->state.position.y * 16;
+
+    return animation_render(
+        current_anim,
+        renderer,
+        x,
+        y,
+        t,
+        RENDER_ANCHOR_BOTTOM | RENDER_ANCHOR_LEFT
+    );
+}
+
+void entity_set_position(entity e, int x, int y) {
+    e->state.position.x = x;
+    e->state.position.y = y;
+}
+
+entity_position entity_get_position(entity e) {
+    return e->state.position;
+}
+
+void entity_set_visibility(entity e, int visible) {
+    e->state.visible = visible;
+}
+
+int entity_is_visible(entity e) {
+    return e->state.visible;
+}
+
+void entity_set_facing(entity e, direction d) {
+    e->state.facing = d;
+}
+
+direction entity_get_facing(entity e) {
+    return e->state.facing;
+}
+
+void entity_set_moving(entity e, int moving) {
+    e->state.moving = moving;
+}
+
+int entity_is_moving(entity e) {
+    return e->state.moving;
+}
+
+const char *entity_get_id(entity e) {
+    return e->entity_id;
+}
+
+static iteration_result destroy_entity_action(const hashtable_entry *entry) {
+    state_map_entry *action = (state_map_entry *) entry->value;
+    for (size_t i = 0; i < action->entry_size; i++) {
+        free(action->states[i].clip);
+    }
+    free(action->states);
+    free(action);
+    return ITERATION_CONTINUE;
+}
+
+static iteration_result destroy_entity_animation(const hashtable_entry *entry) {
+    animation anim = (animation) entry->value;
+    animation_destroy(anim);
+    return ITERATION_CONTINUE;
+}
+
 void entity_destroy(entity e) {
     if (e == NULL) return;
-    if (e->actions != NULL) {
-        hashtable_destroy(e->actions);
+    if (e->state_map != NULL) {
+        hashtable_foreach(e->state_map, destroy_entity_action);
+        hashtable_destroy(e->state_map);
     }
     if (e->animations != NULL) {
+        hashtable_foreach(e->animations, destroy_entity_animation);
         hashtable_destroy(e->animations);
     }
     free(e->entity_id);
