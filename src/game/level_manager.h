@@ -16,6 +16,7 @@ void level_manager_cleanup(level_manager_ctx);
 level level_create(asset_manager_ctx, entity_manager_ctx, const char *level_id, const char *map_id);
 int level_render(level, renderer_ctx, double t);
 map level_get_map(level);
+entity level_get_player_entity(level);
 int level_load(level);
 void level_unload(level);
 void level_destroy(level);

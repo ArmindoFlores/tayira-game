@@ -480,7 +480,6 @@ static iteration_result draw_map_grid(const hashtable_entry* entry, void *_args)
     }
 
     renderer_set_layer(args->renderer, args->base_layer + real_layer);
-    log_debug("Drawing map at layer {lu}", args->base_layer + real_layer);
     for (int row = 0; row < args->map->height; row++) {
         for (int col = 0; col < args->map->width; col++) {
             int grid_value = grid_info->grid[row * args->map->width + col];

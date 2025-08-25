@@ -18,15 +18,10 @@ struct game_ctx_s {
     entity_manager_ctx entity_mgr;
     level_manager_ctx level_mgr;
 
-    int player_moving;
     double player_started_moving_at;
-    direction player_direction, held_direction;
-    position_vec player_position;
+    direction held_direction;
 
     int start_move_pos, pixels_per_keypress;
-
-    animation anim_walk_down, anim_walk_up, anim_walk_right, anim_walk_left;
-    animation anim_idle_down, anim_idle_up, anim_idle_right, anim_idle_left;
 
     level current_level;
 
@@ -48,10 +43,7 @@ game_ctx game_context_init() {
 
     game->start_move_pos = 0;
     game->pixels_per_keypress = 1;
-    game->player_moving = 0;
     game->held_direction = DIRECTION_NONE;
-    game->player_direction = DIRECTION_RIGHT;
-    game->player_position = (position_vec) { .x = 23.5 * 16.0f, .y = 13.5 * 16.0f };
     game->debug_info = 0;
 
     game->asset_mgr = asset_manager_init();
@@ -78,44 +70,17 @@ game_ctx game_context_init() {
         return NULL;
     }
 
-    game->anim_walk_down = animation_create(game->asset_mgr, "unarmed_walk", "down");
-    game->anim_walk_up = animation_create(game->asset_mgr, "unarmed_walk", "up");
-    game->anim_walk_right = animation_create(game->asset_mgr, "unarmed_walk", "right");
-    game->anim_walk_left = animation_create(game->asset_mgr, "unarmed_walk", "left");
-    game->anim_idle_down = animation_create(game->asset_mgr, "unarmed_idle", "down");
-    game->anim_idle_up = animation_create(game->asset_mgr, "unarmed_idle", "up");
-    game->anim_idle_right = animation_create(game->asset_mgr, "unarmed_idle", "right");
-    game->anim_idle_left = animation_create(game->asset_mgr, "unarmed_idle", "left");
-    if (
-        game->anim_walk_down == NULL || 
-        game->anim_walk_up == NULL || 
-        game->anim_walk_left == NULL || 
-        game->anim_walk_right == NULL ||
-        game->anim_idle_down == NULL ||
-        game->anim_idle_up == NULL ||
-        game->anim_idle_right == NULL ||
-        game->anim_idle_left == NULL
-    ) {
-        game_context_cleanup(game);
-        return NULL;
-    }
-
     // Pre-load level
     game->current_level = level_manager_load_level(game->level_mgr, "dungeon");
     if (game->current_level == NULL) {
         game_context_cleanup(game);
         return NULL;
     }
-    
-    // Pre-load animations
-    animation_load(game->anim_walk_down);
-    animation_load(game->anim_walk_up);
-    animation_load(game->anim_walk_right);
-    animation_load(game->anim_walk_left);
-    animation_load(game->anim_idle_down);
-    animation_load(game->anim_idle_up);
-    animation_load(game->anim_idle_right);
-    animation_load(game->anim_idle_left);
+    entity_set_position(
+        level_get_player_entity(game->current_level),
+        208.0f,
+        160.0f
+    );
     
     // Pre-load font textures
     font_load(game->base_font_16);
@@ -129,58 +94,6 @@ static void game_render(game_ctx game, renderer_ctx ctx, double dt, double t) {
     }
 
     renderer_set_blend_mode(ctx, BLEND_MODE_BINARY);
-    renderer_increment_layer(ctx);
-    animation anim_to_draw = NULL;
-    if (game->player_moving) {
-        switch (game->player_direction) {
-            case DIRECTION_DOWN:
-                anim_to_draw = game->anim_walk_down;
-                break;
-            case DIRECTION_UP:
-                anim_to_draw = game->anim_walk_up;
-                break;
-            case DIRECTION_RIGHT:
-                anim_to_draw = game->anim_walk_right;
-                break;
-            case DIRECTION_LEFT:
-                anim_to_draw = game->anim_walk_left;
-                break;
-            default: break;
-        }
-    }
-    else {
-        switch (game->player_direction) {
-            case DIRECTION_DOWN:
-                anim_to_draw = game->anim_idle_down;
-                break;
-            case DIRECTION_UP:
-                anim_to_draw = game->anim_idle_up;
-                break;
-            case DIRECTION_RIGHT:
-                anim_to_draw = game->anim_idle_right;
-                break;
-            case DIRECTION_LEFT:
-                anim_to_draw = game->anim_idle_left;
-                break;
-            default: break;
-        } 
-    }
-
-    position_vec actual_position = {
-        .x = game->player_position.x,
-        .y = game->player_position.y - 4
-    };
-
-    if (anim_to_draw != NULL) {
-        animation_render(
-            anim_to_draw, 
-            ctx, 
-            (int) actual_position.x, 
-            (int) actual_position.y, 
-            t, 
-            RENDER_ANCHOR_CENTER
-        );
-    }
 
     if (game->debug_info) {
         renderer_increment_layer(ctx);
@@ -214,18 +127,24 @@ static void game_render(game_ctx game, renderer_ctx ctx, double dt, double t) {
 static void game_step(game_ctx game, double dt, double t) {
     const float speed = 2 * 16.0f;
 
-    int relevant_pos = (int) (game->player_direction == DIRECTION_DOWN || game->player_direction == DIRECTION_UP ? game->player_position.y : game->player_position.x);
-    if (game->player_moving && abs(game->start_move_pos - relevant_pos) >= game->pixels_per_keypress) {
-        game->player_moving = 0;
+    entity player_entity = level_get_player_entity(game->current_level);
+    entity_position player_position = entity_get_position(player_entity);
+    direction player_direction = entity_get_facing(player_entity);
+    int player_moving = entity_is_moving(player_entity);
+
+    int relevant_pos = (int) (player_direction == DIRECTION_DOWN || player_direction == DIRECTION_UP ? player_position.y : player_position.x);
+    if (player_moving && abs(game->start_move_pos - relevant_pos) >= game->pixels_per_keypress) {
+        player_moving = 0;
+        entity_set_moving(player_entity, player_moving);
     }
 
-    if (game->player_moving == 0 && game->held_direction != DIRECTION_NONE) {
-        game->player_direction = game->held_direction;
+    if (!player_moving && game->held_direction != DIRECTION_NONE) {
+        entity_set_facing(player_entity, game->held_direction);
 
-        int next_x = game->player_position.x;
-        int next_y = game->player_position.y;
+        float next_x = player_position.x;
+        float next_y = player_position.y;
         
-        switch (game->player_direction) {
+        switch (player_direction) {
             case DIRECTION_DOWN:
                 next_y += game->pixels_per_keypress;
                 break;
@@ -242,21 +161,23 @@ static void game_step(game_ctx game, double dt, double t) {
                 break;
         }
 
+        log_debug("Checking occupancy at ({d}, {d}): {d}", (int)next_x/16, (int)next_y/16, map_occupied_at(level_get_map(game->current_level), next_x / 16, next_y / 16));
         if (!map_occupied_at(level_get_map(game->current_level), next_x / 16, next_y / 16)) {
-            game->player_moving = 1;
-            game->start_move_pos = (int) (game->player_direction == DIRECTION_DOWN || game->player_direction == DIRECTION_UP ? game->player_position.y : game->player_position.x);
+            entity_set_moving(player_entity, 1);
+            game->start_move_pos = (int) (player_direction == DIRECTION_DOWN || player_direction == DIRECTION_UP ? player_position.y :player_position.x);
         }
     } 
 
-    if (!game->player_moving) return;
+    if (!player_moving) return;
 
-    switch (game->player_direction) {
-        case DIRECTION_UP:    game->player_position.y -= speed * (float)dt; break;
-        case DIRECTION_DOWN:  game->player_position.y += speed * (float)dt; break;
-        case DIRECTION_LEFT:  game->player_position.x -= speed * (float)dt; break;
-        case DIRECTION_RIGHT: game->player_position.x += speed * (float)dt; break;
+    switch (player_direction) {
+        case DIRECTION_UP:    player_position.y -= speed * (float)dt; break;
+        case DIRECTION_DOWN:  player_position.y += speed * (float)dt; break;
+        case DIRECTION_LEFT:  player_position.x -= speed * (float)dt; break;
+        case DIRECTION_RIGHT: player_position.x += speed * (float)dt; break;
         default: break;
     }
+    entity_set_position(player_entity, player_position.x, player_position.y);
 }
 
 int game_update_handler(renderer_ctx ctx, double dt, double t) {
@@ -344,14 +265,6 @@ int game_scroll_handler(renderer_ctx, double, double) {
 void game_context_cleanup(game_ctx ctx) {
     if (ctx == NULL) return;
     if (ctx->base_font_16 != NULL) font_destroy(ctx->base_font_16);
-    if (ctx->anim_walk_down != NULL) animation_destroy(ctx->anim_walk_down);
-    if (ctx->anim_walk_up != NULL) animation_destroy(ctx->anim_walk_up);
-    if (ctx->anim_walk_left != NULL) animation_destroy(ctx->anim_walk_left);
-    if (ctx->anim_walk_right != NULL) animation_destroy(ctx->anim_walk_right);
-    if (ctx->anim_idle_down != NULL) animation_destroy(ctx->anim_idle_down);
-    if (ctx->anim_idle_up != NULL) animation_destroy(ctx->anim_idle_up);
-    if (ctx->anim_idle_left != NULL) animation_destroy(ctx->anim_idle_left);
-    if (ctx->anim_idle_right != NULL) animation_destroy(ctx->anim_idle_right);
     if (ctx->current_level != NULL) level_destroy(ctx->current_level);
     if (ctx->level_mgr != NULL) level_manager_cleanup(ctx->level_mgr);
     if (ctx->entity_mgr != NULL) entity_manager_cleanup(ctx->entity_mgr);

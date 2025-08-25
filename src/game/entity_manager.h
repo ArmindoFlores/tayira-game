@@ -8,7 +8,7 @@
 typedef struct entity_manager_ctx_s *entity_manager_ctx;
 typedef struct entity_s *entity;
 typedef struct entity_position {
-    int x, y;
+    float x, y;
 } entity_position;
 
 entity_manager_ctx entity_manager_init(asset_manager_ctx);
@@ -18,7 +18,7 @@ void entity_manager_cleanup(entity_manager_ctx);
 
 entity entity_copy(entity);
 int entity_render(entity, renderer_ctx, double t);
-void entity_set_position(entity, int x, int y);
+void entity_set_position(entity, float x, float y);
 entity_position entity_get_position(entity);
 void entity_set_visibility(entity, int visible);
 int entity_is_visible(entity);

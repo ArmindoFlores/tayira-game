@@ -1,0 +1,30 @@
+{
+    "name": "Player",
+    "base_attributes": {
+        "str": 10,
+        "dex": 10,
+        "con": 10,
+        "int": 10,
+        "wis": 10,
+        "cha": 10,
+        "ac": 10,
+        "level": 1
+    },
+    "sprites": {
+        "clips": {
+            "idle_down":  { "animation": "unarmed_idle", "variant": "down" },
+            "idle_up":    { "animation": "unarmed_idle", "variant": "up" },
+            "idle_right": { "animation": "unarmed_idle", "variant": "right" },
+            "idle_left":  { "animation": "unarmed_idle", "variant": "left" },
+            "walk_down":  { "animation": "unarmed_walk", "variant": "down" },
+            "walk_up":    { "animation": "unarmed_walk", "variant": "up" },
+            "walk_right": { "animation": "unarmed_walk", "variant": "right" },
+            "walk_left":  { "animation": "unarmed_walk", "variant": "left" }
+        },
+        "state_map": {
+            "idle": { "down": "idle_down", "up": "idle_up", "right": "idle_right", "left": "idle_left" },
+            "walk": { "down": "walk_down", "up": "walk_up", "right": "walk_right", "left": "walk_left" },
+            "*": { "any": "idle_down" }
+        }
+    }
+}

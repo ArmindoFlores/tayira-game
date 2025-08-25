@@ -1,3 +1,4 @@
 {
+    "player": "entities/player/player",
     "simple-goblin": "entities/goblins/simple-goblin"
 }

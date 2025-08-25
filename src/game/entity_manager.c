@@ -546,8 +546,8 @@ int entity_render(entity e, renderer_ctx renderer, double t) {
     animation current_anim = entity_get_animation_from_state(e);
     if (current_anim == NULL) return 1;
 
-    int x = e->state.position.x * 16;
-    int y = e->state.position.y * 16;
+    int x = e->state.position.x;
+    int y = e->state.position.y;
 
     return animation_render(
         current_anim,
@@ -559,7 +559,7 @@ int entity_render(entity e, renderer_ctx renderer, double t) {
     );
 }
 
-void entity_set_position(entity e, int x, int y) {
+void entity_set_position(entity e, float x, float y) {
     e->state.position.x = x;
     e->state.position.y = y;
 }

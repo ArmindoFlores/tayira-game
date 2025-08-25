@@ -14,6 +14,7 @@ struct level_s {
     char *level_id;
     map map;
     linked_list entities;
+    entity player; // FIXME: do this some other way?
     entity_manager_ctx entity_mgr;
 };
 
@@ -74,8 +75,8 @@ static int load_level_entities_position(entity e, level l, cJSON *entity_positio
 
     entity_set_position(
         e,
-        (int) cJSON_GetNumberValue(position_x),
-        (int) cJSON_GetNumberValue(position_y)
+        (float) cJSON_GetNumberValue(position_x),
+        (float) cJSON_GetNumberValue(position_y)
     );
 
 cleanup:
@@ -178,6 +179,11 @@ level level_manager_load_level(level_manager_ctx ctx, const char *level_id) {
         level_destroy(new_level);
         return NULL;
     }
+    new_level->player = entity_manager_load_entity(ctx->entity_mgr, "player");
+    if (new_level->player == NULL) {
+        level_destroy(new_level);
+        return NULL;
+    }
     return new_level;
 }
 
@@ -223,6 +229,10 @@ map level_get_map(level l) {
     return l->map;
 }
 
+entity level_get_player_entity(level l) {
+    return l->player;
+}
+
 struct render_entity_args_s {
     int *result;
     double t;
@@ -238,7 +248,6 @@ static iteration_result render_entity(void *_value, void *_args) {
     // TODO: just order entities based on y and increment layer as we go
     unsigned int y = entity_get_position(value).y;
     renderer_set_layer(args->renderer, args->base_layer + y);
-    log_debug("layer for entity '{s}': {lu}", entity_get_id(value), args->base_layer + y);
     if (entity_render(value, args->renderer, args->t) != 0) {
         *args->result = 1;
     }
@@ -250,7 +259,7 @@ static iteration_result render_entity(void *_value, void *_args) {
 
 int level_render(level l, renderer_ctx ctx, double t) {
     int entity_result = 0;
-    unsigned int base_layer = renderer_get_layer(ctx), max_y = 0;
+    unsigned int base_layer = renderer_get_layer(ctx), max_y = entity_get_position(l->player).y;
     struct render_entity_args_s render_entity_args = {
         .result = &entity_result,
         .renderer = ctx,
@@ -259,6 +268,8 @@ int level_render(level l, renderer_ctx ctx, double t) {
         .max_y = &max_y
     };
     renderer_set_blend_mode(ctx, BLEND_MODE_BINARY);
+    renderer_set_layer(ctx, base_layer + max_y);
+    entity_result = entity_render(l->player, ctx, t);
     linked_list_foreach_args(l->entities, render_entity, &render_entity_args);
     renderer_set_layer(ctx, base_layer);
     int map_result = map_render(l->map, ctx, max_y);
@@ -288,6 +299,10 @@ void level_destroy(level l) {
     if (l->entities) {
         linked_list_foreach_args(l->entities, destroy_entity, l->entity_mgr);
         linked_list_destroy(l->entities);
+    }
+    if (l->player) {
+        entity_manager_unload_entity(l->entity_mgr, entity_get_id(l->player));
+        entity_destroy(l->player);
     }
     free(l->level_id);
     free(l);
