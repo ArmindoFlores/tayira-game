@@ -19,6 +19,7 @@ find_package(OpenGL REQUIRED)
 find_package(glfw3 3.3 REQUIRED) 
 find_package(GLEW REQUIRED)
 find_package(Threads REQUIRED)
+find_package(Doxygen QUIET)
 
 if (TARGET glfw)
     set(GLFW_TARGET glfw)
@@ -26,6 +27,30 @@ elseif (TARGET glfw3)
     set(GLFW_TARGET glfw3)
 else()
     message(FATAL_ERROR "GLFW3 not found. Install it (e.g., libglfw3-dev) or provide a CMake package.")
+endif()
+
+if (DOXYGEN_FOUND)
+    set(DOXYGEN_INPUT_DIRS
+        "${CMAKE_SOURCE_DIR}/src"
+    )
+    list(JOIN DOXYGEN_INPUT_DIRS " " DOXYGEN_INPUT_DIRS_STR)
+
+    set(DOXYGEN_FILE_PATTERNS "*.h")
+    set(DOXYGEN_EXCLUDES "${CMAKE_BINARY_DIR}")
+    set(DOXYGEN_OUTPUT_DIR "${CMAKE_BINARY_DIR}/doxygen")
+
+    configure_file(
+        "${CMAKE_SOURCE_DIR}/Doxyfile.in"
+        "${CMAKE_BINARY_DIR}/Doxyfile"
+        @ONLY
+    )
+
+    add_custom_target(doc
+        COMMAND "${DOXYGEN_EXECUTABLE}" "${CMAKE_BINARY_DIR}/Doxyfile"
+        WORKING_DIRECTORY "${CMAKE_BINARY_DIR}"
+        COMMENT "Generating API documentation with Doxygen"
+        VERBATIM
+    )
 endif()
 
 # --- Internal dependencies ---
