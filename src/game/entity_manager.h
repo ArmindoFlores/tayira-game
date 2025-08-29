@@ -10,6 +10,9 @@ typedef struct entity_s *entity;
 typedef struct entity_position {
     float x, y;
 } entity_position;
+typedef struct entity_hitbox {
+    int width, height, offset_x, offset_y;
+} entity_hitbox;
 
 entity_manager_ctx entity_manager_init(asset_manager_ctx);
 entity entity_manager_load_entity(entity_manager_ctx, const char *entity_id);
@@ -20,6 +23,7 @@ entity entity_copy(entity);
 int entity_render(entity, renderer_ctx, double t);
 void entity_set_position(entity, float x, float y);
 entity_position entity_get_position(entity);
+entity_hitbox entity_get_hitbox(entity);
 void entity_set_visibility(entity, int visible);
 int entity_is_visible(entity);
 void entity_set_facing(entity, direction);

@@ -35,10 +35,10 @@ static hashtable log_printer_registry = NULL;
 
 static void output_log_level(log_level level, FILE *stream) {
     switch (level) {
-        case LOG_LEVEL_DEBUG: fprintf(stream, "\e[90m[DEBUG]"); break;
+        case LOG_LEVEL_DEBUG: fprintf(stream, "\x1b[90m[DEBUG]"); break;
         case LOG_LEVEL_INFO: fprintf(stream, "[INFO]"); break;
-        case LOG_LEVEL_WARNING: fprintf(stream, "\e[33m[WARNING]"); break;
-        case LOG_LEVEL_ERROR: fprintf(stream, "\e[31m[ERROR]"); break;
+        case LOG_LEVEL_WARNING: fprintf(stream, "\x1b[33m[WARNING]"); break;
+        case LOG_LEVEL_ERROR: fprintf(stream, "\x1b[31m[ERROR]"); break;
     }
 }
 
@@ -78,6 +78,7 @@ static int print_builtin_segment(FILE *stream, braced *segment, va_list args) {
             return 0;
     }
     
+    char *string = NULL;
     switch (base_specifier) {
         case 'd':
         case 'i':
@@ -303,7 +304,7 @@ static int print_builtin_segment(FILE *stream, braced *segment, va_list args) {
             break;
             
         case 's':
-            const char *string = va_arg(args, char*);
+            string = va_arg(args, char*);
             if (string == NULL) fprintf(stream, "(null)");
             else fprintf(stream, "%s", string);
             break;
@@ -427,7 +428,7 @@ int _log_message_v(const char *file, int line, log_level level, const char *form
 
     int result = parse_and_print_format_string(stream, format, args);
 
-    fprintf(stream, "\e[0m\n");
+    fprintf(stream, "\x1b[0m\n");
     return result;
 }
 

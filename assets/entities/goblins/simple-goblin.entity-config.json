@@ -11,6 +11,12 @@
         "level": 2
     },
     "sprites": {
+        "hitbox": {
+            "width": 26,
+            "height": 28,
+            "offset_x": 20,
+            "offset_y": 23
+        },
         "clips": {
             "idle_down":  { "animation": "goblin_idle_full", "variant": "down" },
             "idle_up":    { "animation": "goblin_idle_full", "variant": "up" },

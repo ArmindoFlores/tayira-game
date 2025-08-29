@@ -1,0 +1,1 @@
+add_library(data_structures hashtable.c heap.c linked_list.c)

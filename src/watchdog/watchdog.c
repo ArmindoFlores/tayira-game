@@ -1,3 +1,7 @@
+#ifndef _POSIX_C_SOURCE
+#define _POSIX_C_SOURCE 200809L
+#endif
+
 #include "watchdog.h"
 #include "data_structures/hashtable.h"
 #include "data_structures/linked_list.h"
@@ -6,6 +10,17 @@
 #include <string.h>
 #include <threads.h>
 #include <sys/stat.h>
+
+#if defined(__APPLE__)
+    #define STAT_MTIME_SEC(st)  ((st).st_mtimespec.tv_sec)
+    #define STAT_MTIME_NSEC(st) ((st).st_mtimespec.tv_nsec)
+#elif defined(__linux__)
+    #define STAT_MTIME_SEC(st)  ((st).st_mtim.tv_sec)
+    #define STAT_MTIME_NSEC(st) ((st).st_mtim.tv_nsec)
+#else
+    #define STAT_MTIME_SEC(st)  ((st).st_mtime)
+    #define STAT_MTIME_NSEC(st) (0L)
+#endif
 
 struct watchdog_s {
     hashtable watched_files;
@@ -76,8 +91,8 @@ static iteration_result watch_single_file(const hashtable_entry *entry, void *_a
     struct stat file_stat;
     struct timespec file_ts;
     if (stat(file, &file_stat) == 0) {
-        file_ts.tv_sec = file_stat.st_mtime;
-        file_ts.tv_nsec = file_stat.st_mtimensec;
+        file_ts.tv_sec = STAT_MTIME_SEC(file_stat);
+        file_ts.tv_nsec = STAT_MTIME_NSEC(file_stat);
 
         if (compare_timespecs(last_modified, &file_ts) < 0) {
             if (last_modified->tv_sec != 0) {

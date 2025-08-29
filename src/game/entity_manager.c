@@ -44,6 +44,7 @@ struct entity_s {
     hashtable state_map;
 
     base_attributes base_attributes;
+    entity_hitbox hitbox;
 
     entity_state state;
 };
@@ -171,11 +172,11 @@ static int load_entity_sprite_state_map(entity e, cJSON *sprites) {
     state_map_entry *sm_entry = NULL;
 
     cJSON *state_map = cJSON_GetObjectItem(sprites, "state_map");
-    if (state_map == NULL || !cJSON_IsObject(state_map)) LOAD_FAIL("Failed to parse config for entity '{s}': sprites.state_map must be an object");
+    if (state_map == NULL || !cJSON_IsObject(state_map)) LOAD_FAIL("Failed to parse config for entity '{s}': sprites.state_map must be an object", e->entity_id);
 
     cJSON *state_config = NULL;
     cJSON_ArrayForEach(state_config, state_map) {
-        if (!cJSON_IsObject(state_config)) LOAD_FAIL("Failed to parse config for entity '{s}': sprites.state_map.* must be an object");
+        if (!cJSON_IsObject(state_config)) LOAD_FAIL("Failed to parse config for entity '{s}': sprites.state_map.* must be an object", e->entity_id);
         cJSON *direction_config = NULL;
 
         sm_entry = (state_map_entry*) calloc(1, sizeof(state_map_entry));
@@ -204,6 +205,31 @@ cleanup:
         free(sm_entry->states);
         free(sm_entry);
     }
+    return return_value;
+}
+
+static int load_entity_sprite_hitbox(entity e, cJSON *sprites) {
+    int return_value = 0;
+
+    cJSON *hitbox = cJSON_GetObjectItem(sprites, "hitbox");
+    if (hitbox == NULL || !cJSON_IsObject(hitbox)) LOAD_FAIL("Failed to parse config for entity '{s}': sprites.hitbox must be an object", e->entity_id);
+
+    cJSON *width = cJSON_GetObjectItem(hitbox, "width");
+    cJSON *height = cJSON_GetObjectItem(hitbox, "height");
+    cJSON *offset_x = cJSON_GetObjectItem(hitbox, "offset_x");
+    cJSON *offset_y = cJSON_GetObjectItem(hitbox, "offset_y");
+
+    if (width == NULL || !cJSON_IsNumber(width)) LOAD_FAIL("Failed to parse config for entity '{s}': sprites.hitbox.width must be a number", e->entity_id);
+    if (height == NULL || !cJSON_IsNumber(height)) LOAD_FAIL("Failed to parse config for entity '{s}': sprites.hitbox.height must be a number", e->entity_id);
+    if (offset_x == NULL || !cJSON_IsNumber(offset_x)) LOAD_FAIL("Failed to parse config for entity '{s}': sprites.hitbox.offset_x must be a number", e->entity_id);
+    if (offset_y == NULL || !cJSON_IsNumber(offset_y)) LOAD_FAIL("Failed to parse config for entity '{s}': sprites.hitbox.offset_y must be a number", e->entity_id);
+
+    e->hitbox.width = (int) cJSON_GetNumberValue(width);
+    e->hitbox.height = (int) cJSON_GetNumberValue(height);
+    e->hitbox.offset_x = (int) cJSON_GetNumberValue(offset_x);
+    e->hitbox.offset_y = (int) cJSON_GetNumberValue(offset_y);
+
+cleanup:
     return return_value;
 }
 
@@ -251,6 +277,7 @@ static int load_entity_sprites(entity_manager_ctx ctx, entity e, cJSON *entity_c
 
     if (load_entity_sprite_clips(ctx, e, sprites) != 0) return 1;
     if (load_entity_sprite_state_map(e, sprites) != 0) return 1;
+    if (load_entity_sprite_hitbox(e, sprites) != 0) return 1;
     return 0;
 }
 
@@ -489,6 +516,7 @@ entity entity_copy(entity e) {
     }
 
     new_entity->state = e->state;
+    new_entity->hitbox = e->hitbox;
 
     int result = 0;
     struct clone_entity_args_s clone_entity_args = {
@@ -546,8 +574,13 @@ int entity_render(entity e, renderer_ctx renderer, double t) {
     animation current_anim = entity_get_animation_from_state(e);
     if (current_anim == NULL) return 1;
 
-    int x = e->state.position.x;
-    int y = e->state.position.y;
+    int x = e->state.position.x - e->hitbox.offset_x;
+    int y = e->state.position.y + e->hitbox.offset_y;
+
+    // renderer_draw_line(renderer, e->state.position.x,e->state.position.y, e->state.position.x+e->hitbox.width,e->state.position.y, (color_rgb) { .r = 0.75, .g = 0.0, .b = 0.0 }, 1);
+    // renderer_draw_line(renderer, e->state.position.x+e->hitbox.width,e->state.position.y, e->state.position.x+e->hitbox.width,e->state.position.y-e->hitbox.height, (color_rgb) { .r = 0.75, .g = 0.0, .b = 0.0 }, 1);
+    // renderer_draw_line(renderer, e->state.position.x+e->hitbox.width,e->state.position.y-e->hitbox.height, e->state.position.x,e->state.position.y-e->hitbox.height, (color_rgb) { .r = 0.75, .g = 0.0, .b = 0.0 }, 1);
+    // renderer_draw_line(renderer, e->state.position.x,e->state.position.y-e->hitbox.height, e->state.position.x,e->state.position.y, (color_rgb) { .r = 0.75, .g = 0.0, .b = 0.0 }, 1);
 
     return animation_render(
         current_anim,
@@ -566,6 +599,10 @@ void entity_set_position(entity e, float x, float y) {
 
 entity_position entity_get_position(entity e) {
     return e->state.position;
+}
+
+entity_hitbox entity_get_hitbox(entity e) {
+    return e->hitbox;
 }
 
 void entity_set_visibility(entity e, int visible) {

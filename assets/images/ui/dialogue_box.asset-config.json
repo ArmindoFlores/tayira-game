@@ -1,0 +1,59 @@
+{
+    "filetype": ".png",
+    "textures": {
+        "main": {
+            "width": 114,
+            "height": 40,
+            "offset_x": 7,
+            "offset_y": 7
+        },
+        "top-left": {
+            "width": 7,
+            "height": 7,
+            "offset_x": 0,
+            "offset_y": 0
+        },
+        "bottom-left": {
+            "width": 7,
+            "height": 7,
+            "offset_x": 0,
+            "offset_y": 47
+        },
+        "top-right": {
+            "width": 7,
+            "height": 7,
+            "offset_x": 121,
+            "offset_y": 0
+        },
+        "bottom-right": {
+            "width": 7,
+            "height": 7,
+            "offset_x": 121,
+            "offset_y": 47
+        },
+        "top": {
+            "width": 114,
+            "height": 40,
+            "offset_x": 7,
+            "offset_y": 0
+        },
+        "bottom": {
+            "width": 114,
+            "height": 7,
+            "offset_x": 7,
+            "offset_y": 47
+        },
+        "left": {
+            "width": 7,
+            "height": 40,
+            "offset_x": 0,
+            "offset_y": 7
+        },
+        "right": {
+            "width": 7,
+            "height": 40,
+            "offset_x": 121,
+            "offset_y": 7
+        }
+    }
+}

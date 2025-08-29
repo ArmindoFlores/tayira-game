@@ -13,6 +13,7 @@ struct game_ctx_s {
     int debug_info;
     int level;
     font base_font_16;
+    texture dialogue_m, dialogue_br, dialogue_bl, dialogue_tr, dialogue_tl, dialogue_r, dialogue_l, dialogue_b, dialogue_t;
     
     asset_manager_ctx asset_mgr;
     entity_manager_ctx entity_mgr;
@@ -85,7 +86,31 @@ game_ctx game_context_init() {
     // Pre-load font textures
     font_load(game->base_font_16);
 
+    // Test
+    game->dialogue_m = asset_manager_texture_preload(game->asset_mgr, "dialogue_box/main");
+    game->dialogue_br = asset_manager_texture_preload(game->asset_mgr, "dialogue_box/bottom-right");
+    game->dialogue_bl = asset_manager_texture_preload(game->asset_mgr, "dialogue_box/bottom-left");
+    game->dialogue_tr = asset_manager_texture_preload(game->asset_mgr, "dialogue_box/top-right");
+    game->dialogue_tl = asset_manager_texture_preload(game->asset_mgr, "dialogue_box/top-left");
+    game->dialogue_r = asset_manager_texture_preload(game->asset_mgr, "dialogue_box/right");
+    game->dialogue_l = asset_manager_texture_preload(game->asset_mgr, "dialogue_box/left");
+    game->dialogue_b = asset_manager_texture_preload(game->asset_mgr, "dialogue_box/bottom");
+    game->dialogue_t = asset_manager_texture_preload(game->asset_mgr, "dialogue_box/top");
+
     return game;
+}
+
+static void render_dialogue(game_ctx game, renderer_ctx ctx) {
+    renderer_set_layer(ctx, 1000);
+    renderer_draw_texture(ctx, game->dialogue_tl, texture_get_offset_x(game->dialogue_tl), texture_get_offset_y(game->dialogue_tl));
+    renderer_draw_texture(ctx, game->dialogue_tr, texture_get_offset_x(game->dialogue_tr), texture_get_offset_y(game->dialogue_tr));
+    renderer_draw_texture(ctx, game->dialogue_bl, texture_get_offset_x(game->dialogue_bl), texture_get_offset_y(game->dialogue_bl));
+    renderer_draw_texture(ctx, game->dialogue_br, texture_get_offset_x(game->dialogue_br), texture_get_offset_y(game->dialogue_br));
+    renderer_draw_texture(ctx, game->dialogue_r, texture_get_offset_x(game->dialogue_r), texture_get_offset_y(game->dialogue_r));
+    renderer_draw_texture(ctx, game->dialogue_l, texture_get_offset_x(game->dialogue_l), texture_get_offset_y(game->dialogue_l));
+    renderer_draw_texture(ctx, game->dialogue_b, texture_get_offset_x(game->dialogue_b), texture_get_offset_y(game->dialogue_b));
+    renderer_draw_texture(ctx, game->dialogue_t, texture_get_offset_x(game->dialogue_t), texture_get_offset_y(game->dialogue_t));
+    renderer_draw_texture(ctx, game->dialogue_m, texture_get_offset_x(game->dialogue_m), texture_get_offset_y(game->dialogue_m));
 }
 
 static void game_render(game_ctx game, renderer_ctx ctx, double dt, double t) {
@@ -94,6 +119,7 @@ static void game_render(game_ctx game, renderer_ctx ctx, double dt, double t) {
     }
 
     renderer_set_blend_mode(ctx, BLEND_MODE_BINARY);
+    render_dialogue(game, ctx);
 
     if (game->debug_info) {
         renderer_increment_layer(ctx);
@@ -143,25 +169,27 @@ static void game_step(game_ctx game, double dt, double t) {
 
         float next_x = player_position.x;
         float next_y = player_position.y;
+
+        // FIXME: do proper collision detection
+        entity_hitbox player_hitbox = entity_get_hitbox(player_entity);
         
         switch (player_direction) {
             case DIRECTION_DOWN:
                 next_y += game->pixels_per_keypress;
                 break;
             case DIRECTION_UP:
-                next_y -= game->pixels_per_keypress;
+                next_y -= game->pixels_per_keypress + player_hitbox.height;
                 break;
             case DIRECTION_LEFT:
                 next_x -= game->pixels_per_keypress;
                 break;
             case DIRECTION_RIGHT:
-                next_x += game->pixels_per_keypress;
+                next_x += game->pixels_per_keypress + player_hitbox.width;
                 break;            
             default:
                 break;
         }
 
-        log_debug("Checking occupancy at ({d}, {d}): {d}", (int)next_x/16, (int)next_y/16, map_occupied_at(level_get_map(game->current_level), next_x / 16, next_y / 16));
         if (!map_occupied_at(level_get_map(game->current_level), next_x / 16, next_y / 16)) {
             entity_set_moving(player_entity, 1);
             game->start_move_pos = (int) (player_direction == DIRECTION_DOWN || player_direction == DIRECTION_UP ? player_position.y :player_position.x);

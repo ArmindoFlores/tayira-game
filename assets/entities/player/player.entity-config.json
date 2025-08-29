@@ -11,6 +11,12 @@
         "level": 1
     },
     "sprites": {
+        "hitbox": {
+            "width": 14,
+            "height": 22,
+            "offset_x": 25,
+            "offset_y": 21 
+        },
         "clips": {
             "idle_down":  { "animation": "unarmed_idle", "variant": "down" },
             "idle_up":    { "animation": "unarmed_idle", "variant": "up" },
