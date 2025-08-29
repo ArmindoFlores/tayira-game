@@ -53,6 +53,10 @@ if (DOXYGEN_FOUND)
     )
 endif()
 
+
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
+add_executable(tayira main/tayira.c)
+
 # --- Internal dependencies ---
 add_subdirectory(src/cjson)
 add_subdirectory(src/data_structures)
@@ -61,9 +65,6 @@ add_subdirectory(src/logger)
 add_subdirectory(src/renderer)
 add_subdirectory(src/utils)
 add_subdirectory(src/watchdog)
-
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
-add_executable(tayira main/tayira.c)
 
 target_link_libraries(tayira
     PRIVATE
