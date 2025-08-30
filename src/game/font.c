@@ -63,23 +63,17 @@ static int load_font_config(font f) {
         log_error("Failed to read config file for font '{s}'", f->base_asset_id);
         return 1;
     }
-    cJSON *config_json = cJSON_Parse(config_contents);
-    if (config_json == NULL) {
+    cJSON *font_config = cJSON_Parse(config_contents);
+    if (font_config == NULL) {
         free(config_contents);
         log_error("Failed to parse config file for font '{s}'", f->base_asset_id);
         return 1;
     }
     free(config_contents);
 
-    cJSON *font_config = cJSON_GetObjectItem(config_json, f->base_asset_id);
-    if (font_config == NULL) {
-        // No config for this particular font
-        cJSON_Delete(config_json);
-        return 0;
-    }
     if (!cJSON_IsObject(font_config)) {
         log_error("Failed to parse config file for font '{s}': config must be an object", f->base_asset_id);
-        cJSON_Delete(config_json);
+        cJSON_Delete(font_config);
         return 1;
     }
 
@@ -88,14 +82,14 @@ static int load_font_config(font f) {
     cJSON_ArrayForEach(glyph_config_json, font_config) {
         if (!cJSON_IsObject(glyph_config_json)) {
             log_error("Failed to parse config file for font '{s}': glyph config must be an object", f->base_asset_id);
-            cJSON_Delete(config_json);
+            cJSON_Delete(font_config);
             return 1;
         }
 
         struct glyph_config_s *glyph_config = (struct glyph_config_s *) malloc(sizeof(struct glyph_config_s));
         if (glyph_config == NULL) {
             log_error("Failed to allocate memory for glyph config for font '{s}", f->base_asset_id);
-            cJSON_Delete(config_json);
+            cJSON_Delete(font_config);
             return 1;
         }
 
@@ -105,7 +99,7 @@ static int load_font_config(font f) {
         if (glyph_shift_x != NULL) {
             if (!cJSON_IsNumber(glyph_shift_x)) {
                 log_error("Failed to parse config file for font '{s}': glyph shift_x must be a number", f->base_asset_id);
-                cJSON_Delete(config_json);
+                cJSON_Delete(font_config);
                 free(glyph_config);
                 return 1;
             }
@@ -118,7 +112,7 @@ static int load_font_config(font f) {
         if (glyph_shift_y != NULL) {
             if (!cJSON_IsNumber(glyph_shift_y)) {
                 log_error("Failed to parse config file for font '{s}': glyph shift_y must be a number", f->base_asset_id);
-                cJSON_Delete(config_json);
+                cJSON_Delete(font_config);
                 free(glyph_config);
                 return 1;
             }
@@ -130,7 +124,7 @@ static int load_font_config(font f) {
         hashtable_set(f->font_config, glyph_config_json->string, glyph_config);
     }
 
-    cJSON_Delete(config_json);
+    cJSON_Delete(font_config);
     return 0;
 }
 

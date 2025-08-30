@@ -78,15 +78,16 @@ game_ctx game_context_init() {
         "font-yoster-island-12",
         2,
         16,
-        0.05
+        0.025
     );
     if (game->dialog == NULL) {
         game_context_cleanup(game);
         return NULL;
     }
-    dialog_set_text(game->dialog, "Hello! This is a test! This is some really big text to test out line wrapping.", 0);
+    dialog_set_text(game->dialog, "You enter through the old, barely lit stone doorway.\nYou see 2 goblins that seem unaware of your presence.", 0);
     dialog_set_dimensions(game->dialog, 380, 100);
     dialog_set_position(game->dialog, 50, 210);
+    dialog_set_visible(game->dialog, 1);
 
     // Pre-load level
     game->current_level = level_manager_load_level(game->level_mgr, "dungeon");
@@ -97,7 +98,7 @@ game_ctx game_context_init() {
     entity_set_position(
         level_get_player_entity(game->current_level),
         208.0f,
-        160.0f
+        144.0f
     );
     
     // Pre-load font textures
@@ -121,7 +122,7 @@ static void game_render(game_ctx game, renderer_ctx ctx, double dt, double t) {
         int chars_written = snprintf(
             buffer, 
             sizeof(buffer) - 1, 
-            "FPS: %d\nDraw calls: %lu\nInstances: %lu", 
+            "FPSg: %d\nDraw calls: %lu\nInstances: %lu", 
             (int)(1.0 / (dt > 0.0 ? dt : 1.0)),
             stats.draw_calls, 
             stats.drawn_instances
@@ -268,7 +269,19 @@ int game_key_handler(renderer_ctx ctx, int key, int, int action, int mods) {
         game->held_direction = DIRECTION_NONE;
     }
     else if ((key == GLFW_KEY_SPACE || key == GLFW_KEY_ENTER) && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
-        dialog_skip_animation(game->dialog);
+        int visible = dialog_is_visible(game->dialog);
+        dialog_animation_status status = dialog_get_status(game->dialog);
+        
+        if (visible && status == DIALOG_ANIMATING) {
+            dialog_skip_animation(game->dialog);
+        }
+        else if (visible && status == DIALOG_ANIMATION_FINISHED) {
+            dialog_set_visible(game->dialog, 0);
+        }
+        else if (!visible) {
+            dialog_restart_animation(game->dialog);
+            dialog_set_visible(game->dialog, 1);
+        }
     }
 
     return 0;

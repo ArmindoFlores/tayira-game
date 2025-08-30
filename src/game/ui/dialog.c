@@ -22,10 +22,10 @@ struct dialog_s {
 
     int dialog_x, dialog_y, dialog_w, dialog_h;
 
-    int has_next_page;
+    int has_next_page, visible;
     double animation_delay, animation_start;
 
-    dialog_status status;
+    dialog_animation_status status;
 };
 
 static int load_dialog_textures(dialog d) {
@@ -164,6 +164,10 @@ void dialog_skip_animation(dialog d) {
     d->animation_start = -1;
 }
 
+void dialog_restart_animation(dialog d) {
+    d->animation_start = renderer_get_time();
+}
+
 int dialog_set_text(dialog d, const char* text, int has_next_page) {
     free(d->current_text);
     d->current_text = utils_copy_string(text);
@@ -180,6 +184,14 @@ int dialog_set_text(dialog d, const char* text, int has_next_page) {
 
 const char *dialog_get_text(dialog d) {
     return d->current_text;
+}
+
+void dialog_set_visible(dialog d, int visible) {
+    d->visible = visible;
+}
+
+int dialog_is_visible(dialog d) {
+    return d->visible;
 }
 
 void dialog_set_position(dialog d, int x, int y) {
@@ -220,6 +232,10 @@ static void render_dialog_box(dialog d, renderer_ctx ctx, float x, float y, floa
 }
 
 int dialog_render(dialog d, renderer_ctx ctx, double t) {
+    if (d->visible == 0) {
+        return 0;
+    }
+
     if (d->current_text == NULL) {
         d->status = DIALOG_ANIMATION_FINISHED;
         return 1;
@@ -250,7 +266,7 @@ int dialog_render(dialog d, renderer_ctx ctx, double t) {
     );
 }
 
-dialog_status dialog_get_status(dialog d) {
+dialog_animation_status dialog_get_status(dialog d) {
     return d->status;
 }
 
