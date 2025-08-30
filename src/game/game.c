@@ -100,17 +100,32 @@ game_ctx game_context_init() {
     return game;
 }
 
-static void render_dialogue(game_ctx game, renderer_ctx ctx) {
+static void render_dialogue(game_ctx game, renderer_ctx ctx, float x, float y, float w, float h) {
+    float left_offset = texture_get_width(game->dialogue_l);
+    float top_offset = texture_get_height(game->dialogue_t);
+
+    float main_width = w - (left_offset + texture_get_width(game->dialogue_r));
+    float main_height = h - (top_offset + texture_get_height(game->dialogue_b));
+
     renderer_set_layer(ctx, 1000);
-    renderer_draw_texture(ctx, game->dialogue_tl, texture_get_offset_x(game->dialogue_tl), texture_get_offset_y(game->dialogue_tl));
-    renderer_draw_texture(ctx, game->dialogue_tr, texture_get_offset_x(game->dialogue_tr), texture_get_offset_y(game->dialogue_tr));
-    renderer_draw_texture(ctx, game->dialogue_bl, texture_get_offset_x(game->dialogue_bl), texture_get_offset_y(game->dialogue_bl));
-    renderer_draw_texture(ctx, game->dialogue_br, texture_get_offset_x(game->dialogue_br), texture_get_offset_y(game->dialogue_br));
-    renderer_draw_texture(ctx, game->dialogue_r, texture_get_offset_x(game->dialogue_r), texture_get_offset_y(game->dialogue_r));
-    renderer_draw_texture(ctx, game->dialogue_l, texture_get_offset_x(game->dialogue_l), texture_get_offset_y(game->dialogue_l));
-    renderer_draw_texture(ctx, game->dialogue_b, texture_get_offset_x(game->dialogue_b), texture_get_offset_y(game->dialogue_b));
-    renderer_draw_texture(ctx, game->dialogue_t, texture_get_offset_x(game->dialogue_t), texture_get_offset_y(game->dialogue_t));
-    renderer_draw_texture(ctx, game->dialogue_m, texture_get_offset_x(game->dialogue_m), texture_get_offset_y(game->dialogue_m));
+    renderer_draw_texture(ctx, game->dialogue_tl, x, y);
+    renderer_draw_texture(ctx, game->dialogue_tr, x + left_offset + main_width, y);
+    renderer_draw_texture(ctx, game->dialogue_bl, x, y + top_offset + main_height);
+    renderer_draw_texture(ctx, game->dialogue_br, x + left_offset + main_width, y + top_offset + main_height);
+    
+    renderer_draw_texture_with_dimensions(ctx, game->dialogue_t, x + left_offset, y, main_width, top_offset);
+    renderer_draw_texture_with_dimensions(ctx, game->dialogue_b, x + left_offset, y + top_offset + main_height, main_width, texture_get_height(game->dialogue_b));
+    renderer_draw_texture_with_dimensions(ctx, game->dialogue_l, x, y + top_offset, left_offset, main_height);
+    renderer_draw_texture_with_dimensions(ctx, game->dialogue_r, x + left_offset + main_width, y + top_offset, texture_get_width(game->dialogue_r), main_height);
+    
+    renderer_draw_texture_with_dimensions(
+        ctx,
+        game->dialogue_m,
+        x + left_offset,
+        y + top_offset,
+        main_width,
+        main_height
+    );
 }
 
 static void game_render(game_ctx game, renderer_ctx ctx, double dt, double t) {
@@ -119,7 +134,7 @@ static void game_render(game_ctx game, renderer_ctx ctx, double dt, double t) {
     }
 
     renderer_set_blend_mode(ctx, BLEND_MODE_BINARY);
-    render_dialogue(game, ctx);
+    render_dialogue(game, ctx, 50, 50, 380, 100);
 
     if (game->debug_info) {
         renderer_increment_layer(ctx);

@@ -49,6 +49,7 @@ void renderer_run(
     mouse_move_callback mouse_move_cb,
     mouse_move_callback scroll_cb
 );
+void renderer_draw_texture_with_dimensions(renderer_ctx, texture, float x, float y, float w, float h);
 void renderer_draw_texture(renderer_ctx, texture, float x, float y);
 void renderer_draw_line(renderer_ctx, float start_x, float start_y, float end_x, float end_y, color_rgb, float thickness);
 void renderer_set_tint(renderer_ctx, color_rgb);

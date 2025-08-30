@@ -678,7 +678,7 @@ void renderer_draw_line(renderer_ctx ctx, float start_x, float start_y, float en
     inst->z = ctx->layer_step;
 }
 
-void renderer_draw_texture(renderer_ctx ctx, texture t, float x, float y) {
+void renderer_draw_texture_with_dimensions(renderer_ctx ctx, texture t, float x, float y, float w, float h) {
     const unsigned int tex_id = texture_get_id(t);
 
     if (ctx->texture_renderer_data.current_texture != 0 && ctx->texture_renderer_data.current_texture != tex_id) {
@@ -691,9 +691,6 @@ void renderer_draw_texture(renderer_ctx ctx, texture t, float x, float y) {
         ctx->texture_renderer_data.current_texture = tex_id;
     }
 
-    const float w = (float) texture_get_width(t);
-    const float h = (float) texture_get_height(t);
-
     gl_texture_instance *inst = &ctx->texture_renderer_data.instances[ctx->texture_renderer_data.base_data.instance_count++];
     inst->x = x; inst->y = y; inst->w = w; inst->h = h;
     inst->z = 1.0 - ctx->layer * ctx->layer_step;
@@ -703,6 +700,17 @@ void renderer_draw_texture(renderer_ctx ctx, texture t, float x, float y) {
     inst->u0 = vertices[2]; inst->v0 = vertices[3];
     inst->u1 = vertices[10]; inst->v1 = vertices[11];
     ctx->drawn_instances++;
+}
+
+void renderer_draw_texture(renderer_ctx ctx, texture t, float x, float y) {
+    renderer_draw_texture_with_dimensions(
+        ctx,
+        t,
+        x,
+        y,
+        (float) texture_get_width(t),
+        (float) texture_get_height(t)
+    );
 }
 
 void renderer_set_tint(renderer_ctx ctx, color_rgb color) {
