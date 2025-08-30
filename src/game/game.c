@@ -267,6 +267,9 @@ int game_key_handler(renderer_ctx ctx, int key, int, int action, int mods) {
     else if (key == GLFW_KEY_D && action == GLFW_RELEASE && game->held_direction == DIRECTION_RIGHT) {
         game->held_direction = DIRECTION_NONE;
     }
+    else if ((key == GLFW_KEY_SPACE || key == GLFW_KEY_ENTER) && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
+        dialog_skip_animation(game->dialog);
+    }
 
     return 0;
 }

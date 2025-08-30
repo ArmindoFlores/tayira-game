@@ -161,7 +161,7 @@ dialog dialog_create(asset_manager_ctx asset_mgr, const char *asset_id, const ch
 }
 
 void dialog_skip_animation(dialog d) {
-    d->animation_start = 0;
+    d->animation_start = -1;
 }
 
 int dialog_set_text(dialog d, const char* text, int has_next_page) {
