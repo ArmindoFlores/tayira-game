@@ -160,6 +160,10 @@ dialog dialog_create(asset_manager_ctx asset_mgr, const char *asset_id, const ch
     return d;
 }
 
+void dialog_skip_animation(dialog d) {
+    d->animation_start = 0;
+}
+
 int dialog_set_text(dialog d, const char* text, int has_next_page) {
     free(d->current_text);
     d->current_text = utils_copy_string(text);
@@ -258,5 +262,6 @@ void dialog_destroy(dialog d) {
     }
     free(d->base_asset_id);
     free(d->current_text);
+    free(d->texture_id_buffer);
     free(d);
 }
