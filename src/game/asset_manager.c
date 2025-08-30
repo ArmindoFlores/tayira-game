@@ -496,8 +496,8 @@ struct add_textures_to_remove_args_s {
     linked_list textures_to_remove;
 };
 
-struct remove_textures_from_hashtable_args_s {
-    hashtable loaded_textures;
+struct unload_child_textures_args_s {
+    asset_manager_ctx ctx;
 };
 
 static iteration_result add_textures_to_remove(const hashtable_entry *entry, void* _args) {
@@ -511,15 +511,11 @@ static iteration_result add_textures_to_remove(const hashtable_entry *entry, voi
     return ITERATION_CONTINUE;
 }
 
-static iteration_result remove_textures_from_hashtable(void *value, void* _args) {
-    struct remove_textures_from_hashtable_args_s *args = (struct remove_textures_from_hashtable_args_s *) _args;
+static iteration_result unload_child_textures(void *value, void* _args) {
+    struct unload_child_textures_args_s *args = (struct unload_child_textures_args_s *) _args;
     const char* texture_id = (const char*) value;
     log_debug("Unloading child texture '{s}'", texture_id);
-    ref_counted_texture *t = (ref_counted_texture *) hashtable_delete(args->loaded_textures, texture_id);
-    if (t != NULL) {
-        texture_destroy(t->texture);
-        free(t);
-    }
+    asset_manager_texture_unload(args->ctx, texture_id);
     return ITERATION_CONTINUE;
 }
 
@@ -553,14 +549,14 @@ int asset_manager_asset_unload(asset_manager_ctx ctx, const char* asset_id) {
         };
         hashtable_foreach_args(ctx->loaded_textures, add_textures_to_remove, &add_textures_to_remove_args);
 
-        // Call remove_textures_from_hashtable() with the specified extra args
-        struct remove_textures_from_hashtable_args_s remove_textures_from_hashtable_args = {
-            .loaded_textures = ctx->loaded_textures,
+        // Call unload_child_textures() with the specified extra args
+        struct unload_child_textures_args_s unload_child_textures_args = {
+            .ctx = ctx,
         };
         linked_list_foreach_args(
             textures_to_remove,
-            remove_textures_from_hashtable,
-            &remove_textures_from_hashtable_args
+            unload_child_textures,
+            &unload_child_textures_args
         );
         // Decrement ref count by number of unloaded textures
         result->ref_count -= linked_list_size(textures_to_remove);
@@ -631,10 +627,10 @@ texture_info *asset_manager_get_texture_info(asset_manager_ctx ctx, const char* 
 
 void asset_manager_texture_unload(asset_manager_ctx ctx, const char* texture_id) {
     ref_counted_texture *result = hashtable_get(ctx->loaded_textures, texture_id);
-    if (result->ref_count > 1) {
-        result->ref_count--;
-        return;
-    }
+    if (result->ref_count == 0) return;
+    result->ref_count--;
+    if (result->ref_count > 0) return;
+    
     texture_info texture_asset_info = texture_asset_info_from_id(ctx, texture_id);
     if (texture_asset_info.asset_id == NULL) {
         log_error("Failed to unload texture '{s}' (could not retrieve parent asset info)", texture_id);

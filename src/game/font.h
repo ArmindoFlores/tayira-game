@@ -7,7 +7,10 @@
 typedef struct font_s *font;
 
 font font_create(asset_manager_ctx, const char *asset_id, float spacing, float size);
-int font_render(font, renderer_ctx, const char*, int x, int y, color_rgb color);
+int font_render(font, renderer_ctx, const char*, int x, int y, color_rgb);
+int font_render_constrained(font, renderer_ctx, const char*, int x, int y, int w, int h, color_rgb);
+int font_render_n(font, renderer_ctx, size_t length, const char*, int x, int y, color_rgb);
+int font_render_n_constrained(font, renderer_ctx, size_t length, const char*, int x, int y, int w, int h, color_rgb);
 int font_load(font);
 int font_unload(font);
 void font_destroy(font);

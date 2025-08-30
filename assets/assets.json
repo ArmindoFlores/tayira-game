@@ -1,7 +1,7 @@
 {
     "tiles": "images/maps/tiles",
     "font-regular-16": "images/fonts/regular-16",
-    "dialogue_box": "images/ui/dialogue_box",
+    "dialog_box": "images/ui/dialog_box",
     "unarmed_idle": "images/player/unarmed_idle",
     "sword_idle": "images/player/sword_idle",
     "unarmed_walk": "images/player/unarmed_walk",

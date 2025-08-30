@@ -1,6 +1,7 @@
 #include "game.h"
 #include "asset_manager.h"
 #include "animation.h"
+#include "ui/dialog.h"
 #include "font.h"
 #include "level_manager.h"
 #include "logger/logger.h"
@@ -13,8 +14,8 @@ struct game_ctx_s {
     int debug_info;
     int level;
     font base_font_16;
-    texture dialogue_m, dialogue_br, dialogue_bl, dialogue_tr, dialogue_tl, dialogue_r, dialogue_l, dialogue_b, dialogue_t;
-    
+    dialog dialog;
+
     asset_manager_ctx asset_mgr;
     entity_manager_ctx entity_mgr;
     level_manager_ctx level_mgr;
@@ -71,6 +72,22 @@ game_ctx game_context_init() {
         return NULL;
     }
 
+    game->dialog = dialog_create(
+        game->asset_mgr,
+        "dialog_box",
+        "font-yoster-island-12",
+        2,
+        16,
+        0.05
+    );
+    if (game->dialog == NULL) {
+        game_context_cleanup(game);
+        return NULL;
+    }
+    dialog_set_text(game->dialog, "Hello! This is a test! This is some really big text to test out line wrapping.", 0);
+    dialog_set_dimensions(game->dialog, 380, 100);
+    dialog_set_position(game->dialog, 50, 210);
+
     // Pre-load level
     game->current_level = level_manager_load_level(game->level_mgr, "dungeon");
     if (game->current_level == NULL) {
@@ -86,46 +103,7 @@ game_ctx game_context_init() {
     // Pre-load font textures
     font_load(game->base_font_16);
 
-    // Test
-    game->dialogue_m = asset_manager_texture_preload(game->asset_mgr, "dialogue_box/main");
-    game->dialogue_br = asset_manager_texture_preload(game->asset_mgr, "dialogue_box/bottom-right");
-    game->dialogue_bl = asset_manager_texture_preload(game->asset_mgr, "dialogue_box/bottom-left");
-    game->dialogue_tr = asset_manager_texture_preload(game->asset_mgr, "dialogue_box/top-right");
-    game->dialogue_tl = asset_manager_texture_preload(game->asset_mgr, "dialogue_box/top-left");
-    game->dialogue_r = asset_manager_texture_preload(game->asset_mgr, "dialogue_box/right");
-    game->dialogue_l = asset_manager_texture_preload(game->asset_mgr, "dialogue_box/left");
-    game->dialogue_b = asset_manager_texture_preload(game->asset_mgr, "dialogue_box/bottom");
-    game->dialogue_t = asset_manager_texture_preload(game->asset_mgr, "dialogue_box/top");
-
     return game;
-}
-
-static void render_dialogue(game_ctx game, renderer_ctx ctx, float x, float y, float w, float h) {
-    float left_offset = texture_get_width(game->dialogue_l);
-    float top_offset = texture_get_height(game->dialogue_t);
-
-    float main_width = w - (left_offset + texture_get_width(game->dialogue_r));
-    float main_height = h - (top_offset + texture_get_height(game->dialogue_b));
-
-    renderer_set_layer(ctx, 1000);
-    renderer_draw_texture(ctx, game->dialogue_tl, x, y);
-    renderer_draw_texture(ctx, game->dialogue_tr, x + left_offset + main_width, y);
-    renderer_draw_texture(ctx, game->dialogue_bl, x, y + top_offset + main_height);
-    renderer_draw_texture(ctx, game->dialogue_br, x + left_offset + main_width, y + top_offset + main_height);
-    
-    renderer_draw_texture_with_dimensions(ctx, game->dialogue_t, x + left_offset, y, main_width, top_offset);
-    renderer_draw_texture_with_dimensions(ctx, game->dialogue_b, x + left_offset, y + top_offset + main_height, main_width, texture_get_height(game->dialogue_b));
-    renderer_draw_texture_with_dimensions(ctx, game->dialogue_l, x, y + top_offset, left_offset, main_height);
-    renderer_draw_texture_with_dimensions(ctx, game->dialogue_r, x + left_offset + main_width, y + top_offset, texture_get_width(game->dialogue_r), main_height);
-    
-    renderer_draw_texture_with_dimensions(
-        ctx,
-        game->dialogue_m,
-        x + left_offset,
-        y + top_offset,
-        main_width,
-        main_height
-    );
 }
 
 static void game_render(game_ctx game, renderer_ctx ctx, double dt, double t) {
@@ -134,7 +112,7 @@ static void game_render(game_ctx game, renderer_ctx ctx, double dt, double t) {
     }
 
     renderer_set_blend_mode(ctx, BLEND_MODE_BINARY);
-    render_dialogue(game, ctx, 50, 50, 380, 100);
+    dialog_render(game->dialog, ctx, t);
 
     if (game->debug_info) {
         renderer_increment_layer(ctx);
@@ -307,6 +285,7 @@ int game_scroll_handler(renderer_ctx, double, double) {
 
 void game_context_cleanup(game_ctx ctx) {
     if (ctx == NULL) return;
+    if (ctx->dialog != NULL) dialog_destroy(ctx->dialog);
     if (ctx->base_font_16 != NULL) font_destroy(ctx->base_font_16);
     if (ctx->current_level != NULL) level_destroy(ctx->current_level);
     if (ctx->level_mgr != NULL) level_manager_cleanup(ctx->level_mgr);

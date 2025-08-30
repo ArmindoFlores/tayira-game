@@ -56,6 +56,10 @@ void renderer_set_tint(renderer_ctx, color_rgb);
 void renderer_clear_tint(renderer_ctx);
 void renderer_toggle_fullscreen(renderer_ctx);
 renderer_statistics renderer_get_stats(renderer_ctx);
+int renderer_get_width(renderer_ctx);
+int renderer_get_height(renderer_ctx);
+void renderer_get_dimensions(renderer_ctx, int *out_width, int *out_height);
+double renderer_get_time();
 void renderer_cleanup(renderer_ctx);
 
 #endif

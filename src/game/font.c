@@ -5,6 +5,7 @@
 #include "utils/utils.h"
 #include <stdlib.h>
 #include <string.h>
+#include <limits.h>
 
 struct glyph_config_s {
     float shift_x;
@@ -164,8 +165,8 @@ font font_create(asset_manager_ctx ctx, const char *asset_id, float spacing, flo
     return f;
 }
 
-int font_render(font f, renderer_ctx renderer, const char* string, int x, int y, color_rgb color) {
-    if (f->font_config == NULL) {
+int font_render_n_constrained(font f, renderer_ctx renderer, size_t length, const char *string, int x, int y, int w, int h, color_rgb color) {
+        if (f->font_config == NULL) {
         log_throttle_error(5000, "Can't render font '{s}' before it is loaded", f->base_asset_id);
         return 1;
     }
@@ -179,7 +180,8 @@ int font_render(font f, renderer_ctx renderer, const char* string, int x, int y,
     float cur_x = (float) x;
     float cur_y = (float) y;
     size_t string_length = strlen(string);
-    for (size_t i = 0; i < string_length; i++) {
+    size_t iteration_max = length < string_length ? length : string_length;
+    for (size_t i = 0; i < iteration_max; i++) {
         glyph_key_buffer[0] = string[i];
         
         // If the glyph is a space, just increase cur_x
@@ -210,6 +212,17 @@ int font_render(font f, renderer_ctx renderer, const char* string, int x, int y,
         struct glyph_config_s *glyph_config = hashtable_get(f->font_config, glyph_key_buffer);
         float shift_x = glyph_config == NULL ? 0 : glyph_config->shift_x;
         float shift_y = glyph_config == NULL ? 0 : glyph_config->shift_y;
+        
+        // FIXME: this implementation doesn't take into account lots of things, such as:
+        // - Width of the next character
+        // - Breaking only on spaces/new lines
+        // - ...
+        if (cur_x + f->spacing + t_info->width >= w + x) {
+            cur_x = (float) x;
+            cur_y += f->size + f->spacing;
+        }
+        if (cur_y >= h + y) break;
+
         float y_pos = cur_y + (f->size - t_info->height) + shift_y;
         float x_pos = cur_x + shift_x;
 
@@ -218,6 +231,28 @@ int font_render(font f, renderer_ctx renderer, const char* string, int x, int y,
     }
     if (set_tint) renderer_clear_tint(renderer);
     return 0;
+}
+
+int font_render_n(font f, renderer_ctx renderer, size_t length, const char *string, int x, int y, color_rgb color) {
+    return font_render_n_constrained(
+        f,
+        renderer,
+        length,
+        string,
+        x,
+        y,
+        INT_MAX,
+        INT_MAX,
+        color
+    );
+}
+
+int font_render(font f, renderer_ctx renderer, const char* string, int x, int y, color_rgb color) {
+    return font_render_n(f, renderer, strlen(string), string, x, y, color);
+}
+
+int font_render_constrained(font f, renderer_ctx renderer, const char* string, int x, int y, int w, int h, color_rgb color) {
+    return font_render_n_constrained(f, renderer, strlen(string), string, x, y, w, h, color);
 }
 
 int font_load(font f) {

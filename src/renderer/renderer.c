@@ -587,7 +587,6 @@ static void renderer_flush_texture_batch(renderer_ctx ctx) {
     if (ctx->texture_renderer_data.uPanLoc >= 0) {
         glUniform2f(ctx->texture_renderer_data.uPanLoc, ctx->pan_x, ctx->pan_y);
     }
-    glUniform4f(ctx->texture_renderer_data.uColorLoc, 1.0f, 1.0f, 1.0f, 1.0f);
 
     glBufferData(
         GL_ARRAY_BUFFER, 
@@ -815,6 +814,23 @@ renderer_statistics renderer_get_stats(renderer_ctx ctx) {
         .draw_calls = ctx->last_draw_calls,
         .drawn_instances = ctx->last_drawn_instances
     };
+}
+
+int renderer_get_width(renderer_ctx ctx) {
+    return ctx->logical_w;
+}
+
+int renderer_get_height(renderer_ctx ctx) {
+    return ctx->logical_h;
+}
+
+void renderer_get_dimensions(renderer_ctx ctx, int *out_width, int *out_height) {
+    if (out_width != NULL) *out_width = ctx->logical_w;
+    if (out_height != NULL) *out_height = ctx->logical_h;
+}
+
+double renderer_get_time() {
+    return glfwGetTime();
 }
 
 void renderer_run(

@@ -10,9 +10,15 @@ add_library(
     map.c
 )
 
-target_include_directories(game PUBLIC ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_LIST_DIR})
+add_subdirectory(ui)
+
+target_include_directories(
+    game PUBLIC ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_LIST_DIR}
+)
+
 target_link_libraries(game PUBLIC 
     data_structures
+    ui
     logger
     utils
     watchdog
