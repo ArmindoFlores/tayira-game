@@ -11,6 +11,7 @@ add_library(
 )
 
 add_subdirectory(ui)
+add_subdirectory(ai)
 
 target_include_directories(
     game PUBLIC ${CMAKE_SOURCE_DIR}/src ${CMAKE_CURRENT_LIST_DIR}
@@ -18,6 +19,7 @@ target_include_directories(
 
 target_link_libraries(game PUBLIC 
     data_structures
+    ai
     ui
     logger
     utils

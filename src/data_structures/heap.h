@@ -1,6 +1,7 @@
 #ifndef _H_HEAP_H_
 #define _H_HEAP_H_
 
+#include "data_structures.h"
 #include <stddef.h>
 
 /**
@@ -74,6 +75,10 @@ int heap_pop(heap h, void **out_value, int *out_priority);
  * in the address pointed to by this pointer
  */
 int heap_peek(const heap h, void** out_value, int* out_priority);
+
+// FIXME: refine
+// Returns true if any of the elements satisfy the predicate
+int heap_any(const heap h, predicate_function, void *args);
 
 /**
  * This function frees the resources taken up by a heap. It must be called

@@ -10,4 +10,6 @@ typedef enum iteration_result {
     ITERATION_BREAK
 } iteration_result;
 
+typedef int (*predicate_function) (void *element, void *args);
+
 #endif

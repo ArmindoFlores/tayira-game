@@ -5,7 +5,6 @@
 #include "data_structures.h"
 
 typedef struct linked_list_s* linked_list;
-typedef int (*predicate_function) (void *element, void *args);
 
 linked_list linked_list_create();
 int linked_list_pushfront(linked_list, const void *element);

@@ -308,5 +308,10 @@ size_t hashtable_foreach_args(hashtable h, iteration_result (*callback) (const h
 void hashtable_destroy(hashtable h);
 
 uint64_t hashtable_hash_string(const void*);
+uint64_t hashtable_hash_int(const void*);
+int hashtable_compare_strings(const void *, const void*);
+int hashtable_compare_ints(const void *, const void*);
+void *hashtable_copy_trivial(const void *, size_t);
+void *hashtable_copy_string(const void *, size_t);
 
 #endif

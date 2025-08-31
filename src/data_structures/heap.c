@@ -122,6 +122,15 @@ int heap_peek(const heap h, void** out_value, int* out_priority) {
     return 0;
 }
 
+int heap_any(const heap h, predicate_function f, void *args) {
+    for (size_t i = 0; i < h->size; i++) {
+        if (f(h->arr[i].value, args)) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
 void heap_destroy(heap h) {
     if (h == NULL) return;
     free(h->arr);

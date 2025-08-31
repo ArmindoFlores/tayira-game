@@ -39,12 +39,26 @@ uint64_t hashtable_hash_string(const void *key) {
     return hash;
 }
 
+uint64_t hashtable_hash_int(const void *key) {
+    uint64_t hash = (uint64_t) *(const int*) key;
+    hash ^= hash >> 33;
+    hash *= 0xff51afd7ed558ccdULL;
+    hash ^= hash >> 33;
+    hash *= 0xc4ceb9fe1a85ec53ULL;
+    hash ^= hash >> 33;
+    return hash;
+}
+
 static int default_compare_impl(const void *value1, const void *value2) {
     return value1 == value2;
 }
 
 int hashtable_compare_strings(const void *value1, const void* value2) {
     return strcmp((const char*) value1, (const char*) value2);
+}
+
+int hashtable_compare_ints(const void *value1, const void* value2) {
+    return (const int*) value1 == (const int*) value2 ? 0 : 1;
 }
 
 static void default_free_impl(void *) {
@@ -241,7 +255,8 @@ int hashtable_has(hashtable h, const void* key) {
 int hashtable_set(hashtable h, const void* key, void* element) {
     struct hashtable_entry_list_element_s *existing = get_entry(h, key);
     if (existing != NULL) {
-        existing->element = element;
+        h->free_value(existing->element);
+        existing->element = h->copy_value(element, h->value_size);
         return 0;
     }
 
