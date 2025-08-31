@@ -22,52 +22,105 @@
     #define STAT_MTIME_NSEC(st) (0L)
 #endif
 
-struct watchdog_s {
+struct watchdog_handler_s {
     hashtable watched_files;
-    mtx_t files_mtx;
-
     watchdog_callback cb;
     void *cb_args;
-    
-    thrd_t thread;
-    int stop;
+    mtx_t files_mtx;    
 };
 
-watchdog watchdog_create(watchdog_callback cb, void *cb_args) {
-    watchdog w = (watchdog) malloc(sizeof(struct watchdog_s));
-    if (w == NULL) {
-        return NULL;
+typedef struct watchdog_s {
+    linked_list handlers;
+    mtx_t handlers_mtx;    
+    thrd_t thread;
+    int stop;
+} *watchdog;
+
+static watchdog watchdog_singleton = NULL;
+
+void watchdog_init() {
+    if (watchdog_singleton != NULL) return;
+    watchdog_singleton = (watchdog) malloc(sizeof(struct watchdog_s));
+    if (watchdog_singleton == NULL) {
+        return;
     }
-    w->stop = 0;
-    w->thread = 0;
-    w->cb = cb;
-    w->cb_args = cb_args;
-    if (mtx_init(&w->files_mtx, mtx_plain) != thrd_success) {
-        free(w);
-        return NULL;
+    watchdog_singleton->stop = 0;
+    watchdog_singleton->thread = 0;
+    if (mtx_init(&watchdog_singleton->handlers_mtx, mtx_plain) != thrd_success) {
+        free(watchdog_singleton);
+        watchdog_singleton = NULL;
+        return;
     }
-    w->watched_files = hashtable_create();
-    if (w->watched_files == NULL) {
-        watchdog_destroy(w);
-        return NULL;
+    watchdog_singleton->handlers = linked_list_create();
+    if (watchdog_singleton->handlers == NULL) {
+        watchdog_cleanup();
+        return;
     }
-    return w;
 }
 
-int watchdog_watch(watchdog w, const char *file) {
+watchdog_handler watchdog_get_handler(watchdog_callback cb, void *cb_args) {
+    if (watchdog_singleton == NULL) return NULL;
+    watchdog_handler handler = (watchdog_handler) calloc(1, sizeof(struct watchdog_handler_s));
+    if (handler == NULL) {
+        return NULL;
+    }
+    if (mtx_init(&handler->files_mtx, mtx_plain) != thrd_success) {
+        free(handler);
+        return NULL;
+    }
+    handler->watched_files = hashtable_create();
+    if (handler->watched_files == NULL) {
+        watchdog_destroy_handler(handler);
+        return NULL;
+    }
+    handler->cb = cb;
+    handler->cb_args = cb_args;
+    mtx_lock(&watchdog_singleton->handlers_mtx);
+    if (linked_list_pushfront(watchdog_singleton->handlers, handler) != 0) {
+        mtx_unlock(&watchdog_singleton->handlers_mtx);
+        watchdog_destroy_handler(handler);
+        return NULL;
+    }
+    mtx_unlock(&watchdog_singleton->handlers_mtx);
+    return handler;
+}
+
+static int remove_if_equals(void *element, void *args) {
+    return element == args;
+}
+
+static iteration_result destroy_timespec(const hashtable_entry *entry) {
+    free(entry->value);
+    return ITERATION_CONTINUE;
+}
+
+void watchdog_destroy_handler(watchdog_handler handler) {
+    if (handler == NULL) return;
+    mtx_lock(&watchdog_singleton->handlers_mtx);
+    linked_list_remove_if(watchdog_singleton->handlers, remove_if_equals, handler);
+    mtx_unlock(&watchdog_singleton->handlers_mtx);
+    mtx_destroy(&handler->files_mtx);
+    if (handler->watched_files != NULL) {
+        hashtable_foreach(handler->watched_files, destroy_timespec);
+        hashtable_destroy(handler->watched_files);
+    }
+    free(handler);
+}
+
+int watchdog_watch(watchdog_handler handler, const char *file) {
     struct timespec *value = malloc(sizeof(struct timespec));
     value->tv_sec = 0;
     value->tv_nsec = 0;
-    mtx_lock(&w->files_mtx);
-    int result = hashtable_set(w->watched_files, file, value);
-    mtx_unlock(&w->files_mtx);
+    mtx_lock(&handler->files_mtx);
+    int result = hashtable_set(handler->watched_files, file, value);
+    mtx_unlock(&handler->files_mtx);
     return result;
 }
 
-void watchdog_forget(watchdog w, const char *file) {
-    mtx_lock(&w->files_mtx);
-    hashtable_delete(w->watched_files, file);
-    mtx_unlock(&w->files_mtx);
+void watchdog_forget(watchdog_handler handler, const char *file) {
+    mtx_lock(&handler->files_mtx);
+    hashtable_delete(handler->watched_files, file);
+    mtx_unlock(&handler->files_mtx);
 }
 
 static time_t compare_timespecs(struct timespec *t1, struct timespec *t2) {
@@ -78,7 +131,7 @@ static time_t compare_timespecs(struct timespec *t1, struct timespec *t2) {
 }
 
 struct watch_single_file_args_s {
-    watchdog w;
+    watchdog_handler handler;
     linked_list to_remove;
 };
 
@@ -96,7 +149,7 @@ static iteration_result watch_single_file(const hashtable_entry *entry, void *_a
 
         if (compare_timespecs(last_modified, &file_ts) < 0) {
             if (last_modified->tv_sec != 0) {
-                args->w->cb(file, WATCHDOG_FILE_CHANGED, args->w->cb_args);
+                args->handler->cb(file, WATCHDOG_FILE_CHANGED, args->handler->cb_args);
             }
             *last_modified = file_ts;
         }
@@ -108,67 +161,80 @@ static iteration_result watch_single_file(const hashtable_entry *entry, void *_a
     return ITERATION_CONTINUE;
 }
 
-int watchdog_thread_function(void *_args) {
-    watchdog w = (watchdog) _args;
+static iteration_result watch_handler(void *element) {
+    watchdog_handler handler = (watchdog_handler) element;
 
     struct watch_single_file_args_s watch_single_file_args = {
-        .w = w,
+        .handler = handler,
         .to_remove = linked_list_create()
     };
 
     if (watch_single_file_args.to_remove == NULL) {
-        log_error("Watchdog thread exited: failed to allocate memory");
-        return 1;
+        log_error("Watchdog thread error: failed to allocate memory");
+        return ITERATION_CONTINUE;
     }
 
-    while (!w->stop) {
-        mtx_lock(&w->files_mtx);
-        hashtable_foreach_args(w->watched_files, watch_single_file, &watch_single_file_args);
-        while (1) {
-            char *file_to_remove = (char *) linked_list_popfront(watch_single_file_args.to_remove);
-            if (file_to_remove == NULL) break;
-            free(hashtable_delete(w->watched_files, file_to_remove));
-        }
-        mtx_unlock(&w->files_mtx);
+    mtx_lock(&handler->files_mtx);
+    hashtable_foreach_args(handler->watched_files, watch_single_file, &watch_single_file_args);
+    while (1) {
+        char *file_to_remove = (char *) linked_list_popfront(watch_single_file_args.to_remove);
+        if (file_to_remove == NULL) break;
+        free(hashtable_delete(handler->watched_files, file_to_remove));
+    }
+    mtx_unlock(&handler->files_mtx);
+
+    linked_list_destroy(watch_single_file_args.to_remove);
+
+    return ITERATION_CONTINUE;
+}
+
+int watchdog_thread_function(void *_) {
+    (void) _;
+    while (!watchdog_singleton->stop) {
+        mtx_lock(&watchdog_singleton->handlers_mtx);
+        linked_list_foreach(watchdog_singleton->handlers, watch_handler);
+        mtx_unlock(&watchdog_singleton->handlers_mtx);
 
         // Sleep for 500ms
         thrd_sleep(&(struct timespec){ .tv_sec = 0, .tv_nsec = 500000000 }, NULL);
     }
-
-    linked_list_destroy(watch_single_file_args.to_remove);
+    
     return 0;
 }
 
-int watchdog_run(watchdog w) {
-    if (w->thread != 0) {
+int watchdog_run() {
+    if (watchdog_singleton == NULL) return 1;
+    if (watchdog_singleton->thread != 0) {
         log_error("Watchdog thread is already running");
         return 1;
     }
-    if (thrd_create(&w->thread, watchdog_thread_function, w) != thrd_success) {
+    if (thrd_create(&watchdog_singleton->thread, watchdog_thread_function, NULL) != thrd_success) {
         log_error("Failed to create watchdog thread");
         return 1;
     }
     return 0;
 }
 
-void watchdog_stop(watchdog w) {
-    if (w->stop == 1 || w->thread == 0) return;
-    w->stop = 1;
-    thrd_join(w->thread, NULL);
+void watchdog_stop() {
+    if (watchdog_singleton->stop == 1 || watchdog_singleton->thread == 0) return;
+    watchdog_singleton->stop = 1;
+    thrd_join(watchdog_singleton->thread, NULL);
 }
 
-static iteration_result destroy_timespec(const hashtable_entry *entry) {
-    free(entry->value);
+static iteration_result destroy_handler(void *element) {
+    watchdog_handler handler = (watchdog_handler) element;
+    watchdog_destroy_handler(handler);
     return ITERATION_CONTINUE;
 }
 
-void watchdog_destroy(watchdog w) {
-    if (w == NULL) return;
-    watchdog_stop(w);
-    if (w->watched_files != NULL) {
-        hashtable_foreach(w->watched_files, destroy_timespec);
-        hashtable_destroy(w->watched_files);
+void watchdog_cleanup() {
+    if (watchdog_singleton == NULL) return;
+    watchdog_stop();
+    if (watchdog_singleton->handlers != NULL) {
+        linked_list_foreach(watchdog_singleton->handlers, destroy_handler);
+        linked_list_destroy(watchdog_singleton->handlers);
     }
-    mtx_destroy(&w->files_mtx);
-    free(w);
+    mtx_destroy(&watchdog_singleton->handlers_mtx);
+    free(watchdog_singleton);
+    watchdog_singleton = NULL;
 }

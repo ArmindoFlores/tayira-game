@@ -78,8 +78,8 @@ void linked_list_remove_if(linked_list ll, predicate_function f, void *args) {
         }
         else {
             prev = cur;
+            cur = cur->next;
         }
-        cur = cur->next;
     }
 }
 

@@ -37,7 +37,7 @@ struct asset_manager_ctx_s {
     hashtable textures;
 
     hashtable file_record;
-    watchdog file_watcher;
+    watchdog_handler file_watcher;
     linked_list changed_files_queue;
     mtx_t changed_files_queue_mtx;
     int changed_files_queue_mtx_init;
@@ -361,12 +361,9 @@ asset_manager_ctx asset_manager_init() {
         return NULL;
     }
     ctx->changed_files_queue_mtx_init = 1;
-    ctx->file_watcher = watchdog_create(watchdog_cb, ctx);
+    ctx->file_watcher = watchdog_get_handler(watchdog_cb, ctx);
     if (ctx->file_watcher == NULL) {
         log_warning("Running without asset manager file watcher");
-    }
-    else {
-        watchdog_run(ctx->file_watcher);
     }
     if (load_asset_config(ctx) != 0) {
         asset_manager_cleanup(ctx);
@@ -803,7 +800,7 @@ static iteration_result destroy_file_record(const hashtable_entry *entry) {
 void asset_manager_cleanup(asset_manager_ctx ctx) {
     if (ctx == NULL) return;
     if (ctx->file_watcher != NULL) {
-        watchdog_destroy(ctx->file_watcher);
+        watchdog_destroy_handler(ctx->file_watcher);
     }
     if (ctx->changed_files_queue != NULL) {
         linked_list_foreach(ctx->changed_files_queue, destroy_filename);

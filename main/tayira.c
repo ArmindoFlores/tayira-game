@@ -108,6 +108,9 @@ int main() {
 
     game_ctx game = NULL;
     renderer_ctx ctx = NULL;
+
+    watchdog_init();
+    watchdog_run();
     
     ctx = renderer_init(960, 640, "Tayira - Echoes of the Crimson Sea");
     if (ctx == NULL) {
@@ -133,4 +136,5 @@ int main() {
 cleanup:
     renderer_cleanup(ctx);
     game_context_cleanup(game);
+    watchdog_cleanup();
 }
