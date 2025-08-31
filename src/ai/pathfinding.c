@@ -26,9 +26,9 @@ int pathfinding_find_path(int** occupancy_grid, int width, int height, int start
     heap open_set = NULL;
     hashtable came_from = NULL, g_score = NULL, f_score = NULL;
     open_set = heap_create(width * height / 2 + 1);
-    came_from = hashtable_create();
-    g_score = hashtable_create();
-    f_score = hashtable_create();   
+    came_from = hashtable_create_copied_string_key_borrowed_pointer_value();
+    g_score = hashtable_create_copied_string_key_borrowed_pointer_value();
+    f_score = hashtable_create_copied_string_key_borrowed_pointer_value();   
     
     if (open_set == NULL || came_from == NULL || g_score == NULL || f_score == NULL) {
         return_value = 1;

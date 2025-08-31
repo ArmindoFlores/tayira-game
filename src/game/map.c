@@ -157,7 +157,7 @@ static int load_inner_map_config(map m, const char *partial_path) {
         m->player_layer = (int) cJSON_GetNumberValue(map_player_layer);
     }
 
-    m->asset_info = hashtable_create();
+    m->asset_info = hashtable_create_copied_string_key_borrowed_pointer_value();
     if (m->asset_info == NULL) {
         log_error("Failed to allocate memory during parsing of map config");
         cJSON_Delete(map_config);
@@ -204,7 +204,7 @@ static int load_inner_map_config(map m, const char *partial_path) {
         }
     }
 
-    m->grids = hashtable_create();
+    m->grids = hashtable_create_copied_string_key_borrowed_pointer_value();
     if (m->grids == NULL) {
         log_error("Failed to allocate memory during parsing of map config");
         cJSON_Delete(map_config);
@@ -369,7 +369,7 @@ map map_create(asset_manager_ctx ctx, const char *map_id) {
         map_destroy(m);
         return NULL;
     }
-    m->texture_cache = hashtable_create();
+    m->texture_cache = hashtable_create_copied_string_key_borrowed_pointer_value();
     if (m->texture_cache == NULL) {
         map_destroy(m);
         return NULL;

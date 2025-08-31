@@ -463,7 +463,7 @@ int _log_message_throttled(const char *file, int line, uint64_t last_ts, uint64_
 
 int log_register_printer(const char* specifier, log_printer_fn printer_fn) {
     if (log_printer_registry == NULL) {
-        log_printer_registry = hashtable_create();
+        log_printer_registry = hashtable_create_copied_string_key_borrowed_pointer_value();
         if (log_printer_registry == NULL) {
             return 1;
         }

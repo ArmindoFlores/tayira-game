@@ -273,11 +273,11 @@ static int load_inner_asset_config(asset_manager_ctx ctx, cJSON *root_asset_conf
 }
 
 static int load_asset_config(asset_manager_ctx ctx) {
-    ctx->assets = hashtable_create();
+    ctx->assets = hashtable_create_copied_string_key_borrowed_pointer_value();
     if (ctx->assets == NULL) {
         return 1;
     }
-    ctx->textures = hashtable_create();
+    ctx->textures = hashtable_create_copied_string_key_borrowed_pointer_value();
     if (ctx->textures == NULL) {
         return 1;
     }
@@ -336,12 +336,12 @@ asset_manager_ctx asset_manager_init() {
         asset_manager_cleanup(ctx);
         return NULL;
     }
-    ctx->loaded_assets = hashtable_create();
+    ctx->loaded_assets = hashtable_create_copied_string_key_borrowed_pointer_value();
     if (ctx->loaded_assets == NULL) {
         asset_manager_cleanup(ctx);
         return NULL;
     }
-    ctx->loaded_textures = hashtable_create();
+    ctx->loaded_textures = hashtable_create_copied_string_key_borrowed_pointer_value();
     if (ctx->loaded_textures == NULL) {
         asset_manager_cleanup(ctx);
         return NULL;
@@ -351,7 +351,7 @@ asset_manager_ctx asset_manager_init() {
         asset_manager_cleanup(ctx);
         return NULL;
     }
-    ctx->file_record = hashtable_create();
+    ctx->file_record = hashtable_create_copied_string_key_borrowed_pointer_value();
     if (ctx->file_record == NULL) {
         asset_manager_cleanup(ctx);
         return NULL;
@@ -559,7 +559,7 @@ int asset_manager_asset_unload(asset_manager_ctx ctx, const char* asset_id) {
         result->ref_count -= linked_list_size(textures_to_remove);
         linked_list_destroy(textures_to_remove);
     }
-    hashtable_delete(ctx->loaded_assets, asset_id);
+    hashtable_pop(ctx->loaded_assets, asset_id);
     asset_unload(result->asset);
     free(result);
     log_debug("Unloaded asset '{s}'", asset_id);
@@ -635,7 +635,7 @@ void asset_manager_texture_unload(asset_manager_ctx ctx, const char* texture_id)
     }
 
     asset_manager_asset_unload(ctx, texture_asset_info.asset_id);
-    hashtable_delete(ctx->loaded_textures, texture_id);
+    hashtable_pop(ctx->loaded_textures, texture_id);
     texture_destroy(result->texture);
     free(result);
 }

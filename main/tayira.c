@@ -103,14 +103,33 @@ void register_loggers() {
     log_register_printer("linked_list", print_linked_list);
 }
 
-int main() {
-    register_loggers();
+static int compare_int(const void* value1, const void* value2) {
+    log_debug("Comparing {d} and {d}", *(const int*) value1, *(const int*) value2);
+    return *(const int*) value1 == *(const int*) value2 ? 0 : 1;
+}
 
+static uint64_t hash_int(const void *key) {
+    return (uint64_t) *(const int*) key;
+}
+
+int main() {
+    hashtable test = hashtable_create_trivial_key_borrowed_pointer_value(sizeof(int), compare_int, hash_int);
+    hashtable_set(test, &(int) { 1 }, "hello world");
+    hashtable_set(test, &(int) { 2 }, "testing test");
+    log_info("get(1): {s}", hashtable_get(test, &(int) { 1 }));
+    log_info("get(2): {s}", hashtable_get(test, &(int) { 2 }));
+    log_info("get(3): {s}", hashtable_get(test, &(int) { 3 }));
+
+    hashtable_destroy(test);
+
+    return 0;
+    register_loggers();
+    
     game_ctx game = NULL;
     renderer_ctx ctx = NULL;
 
     watchdog_init();
-    watchdog_run();
+    // watchdog_run();
     
     ctx = renderer_init(960, 640, "Tayira - Echoes of the Crimson Sea");
     if (ctx == NULL) {

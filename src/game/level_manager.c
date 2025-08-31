@@ -156,7 +156,7 @@ level_manager_ctx level_manager_init(asset_manager_ctx asset_mgr, entity_manager
     }
     ctx->entity_mgr = entity_mgr;
     ctx->asset_mgr = asset_mgr;
-    ctx->level_config = hashtable_create();
+    ctx->level_config = hashtable_create_copied_string_key_borrowed_pointer_value();
     if (ctx->level_config == NULL) {
         level_manager_cleanup(ctx);
         return NULL;

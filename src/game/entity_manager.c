@@ -360,7 +360,7 @@ void entity_manager_unload_entity(entity_manager_ctx ctx, const char *entity_id)
         rc_entity->ref_count--;
         return;
     }
-    hashtable_delete(ctx->entities, entity_id);
+    hashtable_pop(ctx->entities, entity_id);
     log_debug("Unloaded entity '{s}'", entity_id);
     entity_destroy(rc_entity->entity);
     free(rc_entity);
@@ -372,12 +372,12 @@ entity_manager_ctx entity_manager_init(asset_manager_ctx asset_mgr) {
         return NULL;
     }
     ctx->asset_mgr = asset_mgr;
-    ctx->entities = hashtable_create();
+    ctx->entities = hashtable_create_copied_string_key_borrowed_pointer_value();
     if (ctx->entities == NULL) {
         entity_manager_cleanup(ctx);
         return NULL;
     }
-    ctx->entity_config = hashtable_create();
+    ctx->entity_config = hashtable_create_copied_string_key_borrowed_pointer_value();
     if (ctx->entity_config == NULL) {
         entity_manager_cleanup(ctx);
         return NULL;
@@ -427,13 +427,13 @@ entity entity_create(const char* entity_id) {
         return NULL;
     }
 
-    e->state_map = hashtable_create();
+    e->state_map = hashtable_create_copied_string_key_borrowed_pointer_value();
     if (e->state_map == NULL) {
         entity_destroy(e);
         return NULL;
     }
 
-    e->animations = hashtable_create();
+    e->animations = hashtable_create_copied_string_key_borrowed_pointer_value();
     if (e->animations == NULL) {
         entity_destroy(e);
         return NULL;

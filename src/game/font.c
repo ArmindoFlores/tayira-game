@@ -40,7 +40,7 @@ static char *get_font_path(const char *partial_path) {
 static int load_font_config(font f) {
     if (f->font_config != NULL) return 0;
 
-    f->font_config = hashtable_create();
+    f->font_config = hashtable_create_copied_string_key_borrowed_pointer_value();
     if (f->font_config == NULL) {
         return 1;
     }

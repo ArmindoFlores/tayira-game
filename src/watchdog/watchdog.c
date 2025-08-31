@@ -68,7 +68,7 @@ watchdog_handler watchdog_get_handler(watchdog_callback cb, void *cb_args) {
         free(handler);
         return NULL;
     }
-    handler->watched_files = hashtable_create();
+    handler->watched_files = hashtable_create_copied_string_key_borrowed_pointer_value();
     if (handler->watched_files == NULL) {
         watchdog_destroy_handler(handler);
         return NULL;
@@ -119,7 +119,7 @@ int watchdog_watch(watchdog_handler handler, const char *file) {
 
 void watchdog_forget(watchdog_handler handler, const char *file) {
     mtx_lock(&handler->files_mtx);
-    hashtable_delete(handler->watched_files, file);
+    hashtable_pop(handler->watched_files, file);
     mtx_unlock(&handler->files_mtx);
 }
 
@@ -179,7 +179,7 @@ static iteration_result watch_handler(void *element) {
     while (1) {
         char *file_to_remove = (char *) linked_list_popfront(watch_single_file_args.to_remove);
         if (file_to_remove == NULL) break;
-        free(hashtable_delete(handler->watched_files, file_to_remove));
+        free(hashtable_pop(handler->watched_files, file_to_remove));
     }
     mtx_unlock(&handler->files_mtx);
 

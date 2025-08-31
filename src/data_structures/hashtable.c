@@ -7,14 +7,18 @@ static const uint64_t FNV_PRIME  = UINT64_C(1099511628211);
 static const double MAX_LOAD = 0.75;
 
 struct hashtable_entry_list_element_s {
-    char *key;
+    void *key;
     void *element;
     struct hashtable_entry_list_element_s *next;
 };
 
 struct hashtable_s {
     size_t capacity;
-    size_t size;
+    size_t size, key_size, value_size;
+    free_function free_key, free_value;
+    copy_function copy_key, copy_value;
+    compare_function compare_keys;
+    hash_function hash_key;
     struct hashtable_entry_list_element_s **entries;
 };
 
@@ -22,12 +26,82 @@ struct f_cb_s {
     iteration_result (*f) (const hashtable_entry*);
 };
 
-hashtable hashtable_create() {
+static uint64_t default_hash_key_impl(const void *key) {
+    return (uint64_t) key;
+}
+
+uint64_t hashtable_hash_string(const void *key) {
+    uint64_t hash = FNV_OFFSET;
+    for (const unsigned char *p = (const unsigned char*)key; *p; ++p) {
+        hash ^= *p;
+        hash *= FNV_PRIME;
+    }
+    return hash;
+}
+
+static int default_compare_impl(const void *value1, const void *value2) {
+    return value1 == value2;
+}
+
+int hashtable_compare_strings(const void *value1, const void* value2) {
+    return strcmp((const char*) value1, (const char*) value2);
+}
+
+static void default_free_impl(void *) {
+    return;
+}
+
+static void* default_copy_impl(const void *x, size_t) {
+    return (void *) x;
+}
+
+void *hashtable_copy_trivial(const void *element, size_t element_size) {
+    void *copy = malloc(element_size);
+    if (copy == NULL) {
+        return NULL;
+    }
+    memcpy(copy, element, element_size);
+    return copy;
+}
+
+void *hashtable_copy_string(const void *element, size_t) {
+    const char* str_element = (const char*) element;
+    size_t str_len = strlen(str_element);
+    char *copy = calloc(str_len + 1, sizeof(char));
+    if (copy == NULL) {
+        return NULL;
+    }
+    strcpy(copy, str_element);
+    return copy;
+}
+
+static uint64_t index_from_hash(hashtable h, uint64_t hash) {
+    return hash % h->capacity;
+}
+
+hashtable hashtable_create(
+    size_t key_size,
+    free_function free_key,
+    copy_function copy_key,
+    compare_function compare_keys,
+    hash_function hash_key,
+    size_t value_size,
+    free_function free_value,
+    copy_function copy_value
+) {
     hashtable h = (hashtable) malloc(sizeof(struct hashtable_s));
     if (h == NULL) {
         hashtable_destroy(h);
         return NULL;
     }
+    h->free_key = free_key == NULL ? default_free_impl : free_key;
+    h->free_value = free_value == NULL ? default_free_impl : free_value;
+    h->copy_value = copy_value == NULL ? default_copy_impl : copy_value;
+    h->copy_key = copy_key == NULL ? default_copy_impl : copy_key;
+    h->key_size = key_size;
+    h->value_size = value_size;
+    h->hash_key = hash_key == NULL ? default_hash_key_impl : hash_key;
+    h->compare_keys = compare_keys == NULL ? default_compare_impl : compare_keys;
     h->size = 0;
     h->capacity = 16;
     h->entries = (struct hashtable_entry_list_element_s **) calloc(h->capacity, sizeof(struct hashtable_entry_list_element_s *));
@@ -38,26 +112,82 @@ hashtable hashtable_create() {
     return h;
 }
 
-static uint64_t hash_key(const char *key) {
-    uint64_t hash = FNV_OFFSET;
-    for (const unsigned char *p = (const unsigned char*)key; *p; ++p) {
-        hash ^= *p;
-        hash *= FNV_PRIME;
-    }
-    return hash;
+hashtable hashtable_create_copied_string_key_borrowed_pointer_value() {
+    return hashtable_create(
+        sizeof(char*),
+        free,
+        hashtable_copy_string,
+        hashtable_compare_strings,
+        hashtable_hash_string,
+        sizeof(void*),
+        NULL,
+        NULL
+    );
 }
 
-static uint64_t index_from_hash(hashtable h, uint64_t hash) {
-    return hash % h->capacity;
+hashtable hashtable_create_copied_string_key_owned_pointer_value(free_function free_value) {
+    if (free_value == NULL) return NULL;
+    return hashtable_create(
+        sizeof(char*),
+        free,
+        hashtable_copy_string,
+        hashtable_compare_strings,
+        hashtable_hash_string,
+        sizeof(void*),
+        free_value,
+        NULL
+    );
 }
 
-static struct hashtable_entry_list_element_s *get_entry(hashtable h, const char *key) {
-    uint64_t hash = hash_key(key);
+hashtable hashtable_create_trivial_key_borrowed_pointer_value(size_t key_size, compare_function compare_keys, hash_function hash_key) {
+    if (compare_keys == NULL || hash_key == NULL) return NULL;
+    return hashtable_create(
+        key_size,
+        free,
+        hashtable_copy_trivial,
+        compare_keys,
+        hash_key,
+        sizeof(void*),
+        NULL,
+        NULL
+    );
+}
+
+hashtable hashtable_create_trivial_key_owned_pointer_value(size_t key_size, compare_function compare_keys, hash_function hash_key, free_function free_value) {
+    if (compare_keys == NULL || hash_key == NULL || free_value == NULL) return NULL;
+    return hashtable_create(
+        key_size,
+        free,
+        hashtable_copy_trivial,
+        compare_keys,
+        hash_key,
+        sizeof(void*),
+        free_value,
+        NULL
+    );
+}
+
+hashtable hashtable_create_trivial_key_trivial_value(size_t key_size, compare_function compare_keys, hash_function hash_key, size_t value_size) {
+    if (compare_keys == NULL || hash_key == NULL) return NULL;
+    return hashtable_create(
+        key_size,
+        free,
+        hashtable_copy_trivial,
+        compare_keys,
+        hash_key,
+        value_size,
+        free,
+        hashtable_copy_trivial
+    );
+}
+
+static struct hashtable_entry_list_element_s *get_entry(hashtable h, const void *key) {
+    uint64_t hash = h->hash_key(key);
     uint64_t index = index_from_hash(h, hash);
 
     struct hashtable_entry_list_element_s *ptr = h->entries[index];
     while (ptr != NULL) {
-        if (strcmp(ptr->key, key) == 0) {
+        if (h->compare_keys(ptr->key, key) == 0) {
             return ptr;
         }
         ptr = ptr->next;
@@ -79,7 +209,7 @@ static int hashtable_resize(hashtable h) {
         while (node) {
             struct hashtable_entry_list_element_s *next = node->next;
 
-            size_t hash = hash_key(node->key);
+            size_t hash = h->hash_key(node->key);
             size_t index = hash % new_capacity;
 
             node->next = new_entries[index];
@@ -96,7 +226,7 @@ static int hashtable_resize(hashtable h) {
     return 0;
 }
 
-void *hashtable_get(hashtable h, const char* key) {
+void *hashtable_get(hashtable h, const void* key) {
     struct hashtable_entry_list_element_s *result = get_entry(h, key);
     if (result == NULL) {
         return NULL;
@@ -104,11 +234,11 @@ void *hashtable_get(hashtable h, const char* key) {
     return result->element;
 }
 
-int hashtable_has(hashtable h, const char* key) {
+int hashtable_has(hashtable h, const void* key) {
     return hashtable_get(h, key) != NULL;
 }
 
-int hashtable_set(hashtable h, const char* key, void* element) {
+int hashtable_set(hashtable h, const void* key, void* element) {
     struct hashtable_entry_list_element_s *existing = get_entry(h, key);
     if (existing != NULL) {
         existing->element = element;
@@ -119,7 +249,7 @@ int hashtable_set(hashtable h, const char* key, void* element) {
         hashtable_resize(h); // This might fail
     }
 
-    uint64_t hash = hash_key(key);
+    uint64_t hash = h->hash_key(key);
     uint64_t index = index_from_hash(h, hash);
 
     struct hashtable_entry_list_element_s *new_node = (struct hashtable_entry_list_element_s *) malloc(sizeof(struct hashtable_entry_list_element_s));
@@ -127,18 +257,20 @@ int hashtable_set(hashtable h, const char* key, void* element) {
         return 1;
     }
     
-    size_t key_size = strlen(key);
-    new_node->key = (char*) malloc(key_size + 1);
+    new_node->key = h->copy_key(key, h->key_size);
 
     if (new_node->key == NULL) {
         free(new_node);
         return 1;
     }
 
-    memcpy(new_node->key, key, key_size);
-    new_node->key[key_size] = '\0';
-    new_node->element = element;
+    new_node->element = h->copy_value(element, h->value_size);
     
+    if (new_node->element == NULL) {
+        h->free_key(new_node->key);
+        free(new_node);
+    }
+
     struct hashtable_entry_list_element_s *head = h->entries[index];
     h->entries[index] = new_node;
     new_node->next = head;
@@ -147,13 +279,13 @@ int hashtable_set(hashtable h, const char* key, void* element) {
     return 0;
 }
 
-void* hashtable_delete(hashtable h, const char* key) {
-    uint64_t hash = hash_key(key);
+void* hashtable_pop(hashtable h, const void* key) {
+    uint64_t hash = h->hash_key(key);
     uint64_t index = index_from_hash(h, hash);
 
     struct hashtable_entry_list_element_s *ptr = h->entries[index], *prev_ptr = NULL;
     while (ptr != NULL) {
-        if (strcmp(ptr->key, key) == 0) {
+        if (h->compare_keys(ptr->key, key) == 0) {
             if (prev_ptr != NULL) {
                 prev_ptr->next = ptr->next;
             }
@@ -161,7 +293,7 @@ void* hashtable_delete(hashtable h, const char* key) {
                 h->entries[index] = ptr->next;
             }
             void *element = ptr->element;
-            free(ptr->key);
+            h->free_key(ptr->key);
             free(ptr);
             h->size--;
             return element;
@@ -170,6 +302,14 @@ void* hashtable_delete(hashtable h, const char* key) {
         ptr = ptr->next;
     }
     return NULL;
+}
+
+void hashtable_delete(hashtable h, const void* key) {
+    void *result = hashtable_pop(h, key);
+    if (result == NULL) {
+        return;
+    }
+    h->free_value(result);
 }
 
 size_t hashtable_foreach_args(hashtable t, iteration_result (*callback) (const hashtable_entry*, void* args), void* args) {
@@ -209,7 +349,8 @@ void hashtable_destroy(hashtable h) {
             struct hashtable_entry_list_element_s *ptr = h->entries[i];
             while (ptr) {
                 struct hashtable_entry_list_element_s *next = ptr->next;
-                free(ptr->key);
+                h->free_key(ptr->key);
+                h->free_value(ptr->element);
                 free(ptr);
                 ptr = next;
             }
