@@ -527,6 +527,10 @@ int map_occupied_at(map m, int x, int y) {
     return m->collision_grid[x + y * m->width];
 }
 
+linked_list map_find_path(map m, integer_position from, integer_position to) {
+    return pathfinding_find_path(m->collision_grid, m->width, m->height, from, to);
+}
+
 int map_load(map m) {
     return load_map_config(m);
 }

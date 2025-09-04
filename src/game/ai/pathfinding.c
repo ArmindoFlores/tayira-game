@@ -47,6 +47,7 @@ linked_list reconstruct_path(hashtable came_from, integer_position *current) {
     // TODO: We will probably only need to return the next position, not a 
     // TODO: full path.
 
+    // This linked list should own its elements
     linked_list total_path = linked_list_create();
     if (total_path == NULL) {
         return NULL;
@@ -134,8 +135,6 @@ linked_list pathfinding_find_path(int* occupancy_grid, int width, int height, in
         current.x = current_ptr->x;
         current.y = current_ptr->y;
         free(current_ptr);
-
-        log_debug("current=({d}, {d})", current.x, current.y);
 
         if (compare_positions(&current, &goal) == 0) {
             return_value = reconstruct_path(came_from, &current);

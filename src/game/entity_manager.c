@@ -1,5 +1,7 @@
 #include "entity_manager.h"
 #include "animation.h"
+#include "map.h"
+#include "level_manager.h"
 #include "cjson/cJSON.h"
 #include "utils/utils.h"
 #include "logger/logger.h"
@@ -26,9 +28,13 @@ typedef struct entity_action {
 } entity_action;
 
 typedef struct entity_state {
-    int moving, visible;
+    int moving, visible, has_immediate_goal;
     entity_position position;
     direction facing;
+    linked_list path;
+    integer_position goal, immediate_goal;
+
+    game_attributes current_attributes;
 } entity_state;
 
 typedef struct state_map_entry {
@@ -543,6 +549,86 @@ entity entity_copy(entity e) {
     return new_entity;
 }
 
+// FIXME: there should be a better place for this function
+static integer_position screen_to_map_coords(entity_position screen_pos) {
+    // FIXME: 16.0 is a magic constante for now
+    return (integer_position) {
+        .x = (int) (screen_pos.x / 16.0f),
+        .y = (int) (screen_pos.y / 16.0f)
+    };
+}
+
+void entity_update(entity e, level l, double dt) {
+    if (e->state.moving || e->state.path != NULL || e->state.has_immediate_goal) {
+        // Figure our the complete path
+        if (e->state.path == NULL && !e->state.has_immediate_goal && e->state.moving) {
+            integer_position current_pos = screen_to_map_coords(e->state.position);
+            e->state.path = map_find_path(
+                level_get_map(l), 
+                current_pos, 
+                e->state.goal
+            );
+            if (e->state.path == NULL) {
+                e->state.moving = 0;
+                e->state.has_immediate_goal = 0;
+            }
+        }
+        // Get the next step if we have reached the previous one
+        if (e->state.path != NULL && !e->state.has_immediate_goal) {
+            integer_position *tmp = linked_list_popfront(e->state.path);
+            if (tmp != NULL) {
+                e->state.immediate_goal.x = tmp->x;
+                e->state.immediate_goal.y = tmp->y;
+                e->state.has_immediate_goal = 1;
+                free(tmp);
+            }
+            else {
+                linked_list_destroy(e->state.path);
+                e->state.path = NULL;
+            }
+        }
+        // Walk until the next step
+        if (e->state.has_immediate_goal) {
+            integer_position current_pos = screen_to_map_coords(e->state.position);
+            if (e->state.immediate_goal.x > current_pos.x) {
+                e->state.facing = DIRECTION_RIGHT;
+                e->state.position.x += 2.5f * 16.0f * dt;
+            }
+            else if (e->state.immediate_goal.x < current_pos.x) {
+                e->state.facing = DIRECTION_LEFT;
+                e->state.position.x -= 2.5f * 16.0f * dt;
+            }
+            else if (e->state.immediate_goal.y > current_pos.y) {
+                e->state.facing = DIRECTION_DOWN;
+                e->state.position.y += 2.5f * 16.0f * dt;
+            }
+            else if (e->state.immediate_goal.y < current_pos.y) {
+                e->state.facing = DIRECTION_UP;
+                e->state.position.y -= 2.5f * 16.0f * dt;
+            }
+            else {
+                if (e->state.immediate_goal.x == e->state.goal.x && e->state.immediate_goal.y == e->state.goal.y) {
+                    linked_list_destroy(e->state.path);
+                    e->state.path = NULL;
+                    e->state.moving = 0;
+                }
+                e->state.has_immediate_goal = 0;
+            }
+        } 
+    }
+    else {
+        if (rand() % 4096 > 4000) {
+            integer_position current_pos = screen_to_map_coords(e->state.position);
+            int offset_x = (rand() % 15) - 7, offset_y = (rand() % 15) - 7;
+            if (offset_x != 0 || offset_y != 0) {
+                e->state.goal.x = current_pos.x + offset_x;
+                e->state.goal.y = current_pos.y + offset_y;
+                e->state.moving = 1;
+            }
+        }
+    }
+}
+
 static animation entity_get_animation_from_state(entity e) {
     char *move_state = e->state.moving ? "walk": "idle";
     state_map_entry *entry = hashtable_get(e->state_map, move_state);
@@ -649,6 +735,11 @@ static iteration_result destroy_entity_animation(const hashtable_entry *entry) {
     return ITERATION_CONTINUE;
 }
 
+static iteration_result free_path_element(void *element) {
+    free(element);
+    return ITERATION_CONTINUE;
+}
+
 void entity_destroy(entity e) {
     if (e == NULL) return;
     if (e->state_map != NULL) {
@@ -658,6 +749,10 @@ void entity_destroy(entity e) {
     if (e->animations != NULL) {
         hashtable_foreach(e->animations, destroy_entity_animation);
         hashtable_destroy(e->animations);
+    }
+    if (e->state.path != NULL) {
+        linked_list_foreach(e->state.path, free_path_element);
+        linked_list_destroy(e->state.path);
     }
     free(e->entity_id);
     free(e->name);

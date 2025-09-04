@@ -3,6 +3,7 @@
 #include "cjson/cJSON.h"
 #include "data_structures/linked_list.h"
 #include "data_structures/hashtable.h"
+#include "entity_manager.h"
 #include "map.h"
 #include "utils/utils.h"
 #include <stdlib.h>
@@ -231,6 +232,28 @@ map level_get_map(level l) {
 
 entity level_get_player_entity(level l) {
     return l->player;
+}
+
+struct update_entity_args_s {
+    level level;
+    double dt;
+};
+
+static iteration_result update_entity(void *element, void *_args) {
+    struct update_entity_args_s *args = (struct update_entity_args_s *) _args;
+    entity e = (entity) element;
+
+    entity_update(e, args->level, args->dt);
+
+    return ITERATION_CONTINUE;
+} 
+
+void level_update(level l, double dt) {
+    struct update_entity_args_s update_entity_args = {
+        .level = l,
+        .dt = dt
+    };
+    linked_list_foreach_args(l->entities, update_entity, &update_entity_args);
 }
 
 struct render_entity_args_s {
