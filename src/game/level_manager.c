@@ -218,7 +218,7 @@ level level_create(asset_manager_ctx asset_mgr, entity_manager_ctx entity_mgr, c
         level_destroy(l);
         return NULL;
     }
-    l->entities = linked_list_create();
+    l->entities = linked_list_create_borrowed();
     if (l == NULL) {
         level_destroy(l);
         return NULL;

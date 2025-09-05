@@ -68,10 +68,16 @@ static int store_animation_info(animation anim, const char *new_texture_prefix, 
     return 0;
 }
 
+void free_animation_config(void *element) {
+    struct animation_info_s *animation_info = (struct animation_info_s *) element;
+    free(animation_info->prefix);
+    free(animation_info);
+}
+
 static int load_animation_config(animation anim) {
     if (anim->anim_config != NULL) return 0;
 
-    anim->anim_config = linked_list_create();
+    anim->anim_config = linked_list_create_owned(free_animation_config);
     if (anim->anim_config == NULL) {
         return 1;
     }
@@ -403,17 +409,9 @@ int animation_load(animation anim) {
     return asset_manager_asset_and_textures_preload(anim->asset_mgr, anim->base_asset_id);
 }
 
-iteration_result destroy_animation_config(void *element) {
-    struct animation_info_s *animation_info = (struct animation_info_s *) element;
-    free(animation_info->prefix);
-    free(animation_info);
-    return ITERATION_CONTINUE;
-}
-
 int animation_unload(animation anim) {
     if (anim->anim_config == NULL) return 0;
 
-    linked_list_foreach(anim->anim_config, destroy_animation_config);
     linked_list_destroy(anim->anim_config);
     anim->anim_config = NULL;
     asset_manager_asset_unload(anim->asset_mgr, anim->base_asset_id);  // FIXME: this may fail

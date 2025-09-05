@@ -18,11 +18,6 @@ typedef struct {
     void *value;
 } hashtable_entry;
 
-typedef void (*free_function)(void*);
-typedef void* (*copy_function)(const void*, size_t element_size);
-typedef uint64_t (*hash_function)(const void*);
-typedef int (*compare_function)(const void*, const void*);
-
 /**
  * This method creates a new hashtable. The returned object must be destroyed
  * using `hashtable_destroy(...)`.

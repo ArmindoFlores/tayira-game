@@ -330,6 +330,10 @@ static void watchdog_cb(const char* file, watchdog_event event, void *_args) {
     mtx_unlock(&ctx->changed_files_queue_mtx);
 }
 
+static void destroy_filename(void *element) {
+    free(element);
+}
+
 asset_manager_ctx asset_manager_init() {
     asset_manager_ctx ctx = (asset_manager_ctx) calloc(1, sizeof(struct asset_manager_ctx_s));
     if (ctx == NULL) {
@@ -346,7 +350,7 @@ asset_manager_ctx asset_manager_init() {
         asset_manager_cleanup(ctx);
         return NULL;
     }
-    ctx->changed_files_queue = linked_list_create();
+    ctx->changed_files_queue = linked_list_create_owned(destroy_filename);
     if (ctx->changed_files_queue == NULL) {
         asset_manager_cleanup(ctx);
         return NULL;
@@ -534,7 +538,7 @@ int asset_manager_asset_unload(asset_manager_ctx ctx, const char* asset_id) {
         // We can't remove a value from a hashtable while iterating, so let's
         // store values to be removed in a list, and remove them later by
         // iterating through the list.
-        linked_list textures_to_remove = linked_list_create();
+        linked_list textures_to_remove = linked_list_create_borrowed();
         if (textures_to_remove == NULL) {
             return 1;
         }
@@ -785,11 +789,6 @@ static iteration_result destroy_texture(const hashtable_entry *entry) {
     return ITERATION_CONTINUE;
 }
 
-static iteration_result destroy_filename(void *element) {
-    free(element);
-    return ITERATION_CONTINUE;
-}
-
 static iteration_result destroy_file_record(const hashtable_entry *entry) {
     file_record_info *fr_info = entry->value;
     free(fr_info->key);
@@ -803,7 +802,6 @@ void asset_manager_cleanup(asset_manager_ctx ctx) {
         watchdog_destroy_handler(ctx->file_watcher);
     }
     if (ctx->changed_files_queue != NULL) {
-        linked_list_foreach(ctx->changed_files_queue, destroy_filename);
         linked_list_destroy(ctx->changed_files_queue);
     }
     if (ctx->loaded_assets != NULL) {

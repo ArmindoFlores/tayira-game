@@ -735,11 +735,6 @@ static iteration_result destroy_entity_animation(const hashtable_entry *entry) {
     return ITERATION_CONTINUE;
 }
 
-static iteration_result free_path_element(void *element) {
-    free(element);
-    return ITERATION_CONTINUE;
-}
-
 void entity_destroy(entity e) {
     if (e == NULL) return;
     if (e->state_map != NULL) {
@@ -751,7 +746,6 @@ void entity_destroy(entity e) {
         hashtable_destroy(e->animations);
     }
     if (e->state.path != NULL) {
-        linked_list_foreach(e->state.path, free_path_element);
         linked_list_destroy(e->state.path);
     }
     free(e->entity_id);

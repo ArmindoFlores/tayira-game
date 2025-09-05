@@ -51,7 +51,7 @@ void watchdog_init() {
         watchdog_singleton = NULL;
         return;
     }
-    watchdog_singleton->handlers = linked_list_create();
+    watchdog_singleton->handlers = linked_list_create_borrowed();
     if (watchdog_singleton->handlers == NULL) {
         watchdog_cleanup();
         return;
@@ -166,7 +166,7 @@ static iteration_result watch_handler(void *element) {
 
     struct watch_single_file_args_s watch_single_file_args = {
         .handler = handler,
-        .to_remove = linked_list_create()
+        .to_remove = linked_list_create_borrowed()
     };
 
     if (watch_single_file_args.to_remove == NULL) {

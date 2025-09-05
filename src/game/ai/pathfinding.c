@@ -38,9 +38,8 @@ static integer_position *new_position(int x, int y) {
     return pos;
 }
 
-static iteration_result destroy_integer_position(void *element) {
-    free(element);
-    return ITERATION_CONTINUE;
+static void free_integer_position(void *position) {
+    free(position);
 }
 
 linked_list reconstruct_path(hashtable came_from, integer_position *current) {
@@ -48,7 +47,7 @@ linked_list reconstruct_path(hashtable came_from, integer_position *current) {
     // TODO: full path.
 
     // This linked list should own its elements
-    linked_list total_path = linked_list_create();
+    linked_list total_path = linked_list_create_owned(free_integer_position);
     if (total_path == NULL) {
         return NULL;
     }
@@ -60,7 +59,6 @@ linked_list reconstruct_path(hashtable came_from, integer_position *current) {
     }
 
     if (linked_list_pushfront(total_path, pos) != 0) {
-        free(pos);
         linked_list_destroy(total_path);
         return NULL;
     }
@@ -72,13 +70,11 @@ linked_list reconstruct_path(hashtable came_from, integer_position *current) {
 
         integer_position *from_copy = new_position(from->x, from->y);
         if (from_copy == NULL) {
-            linked_list_foreach(total_path, destroy_integer_position);
             linked_list_destroy(total_path);
             return NULL;
         }
         if (linked_list_pushfront(total_path, from_copy) != 0) {
             free(from_copy);
-            linked_list_foreach(total_path, destroy_integer_position);
             linked_list_destroy(total_path);
             return NULL;
         }

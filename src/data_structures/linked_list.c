@@ -8,7 +8,9 @@ struct linked_list_element_s {
 };
 
 struct linked_list_s {
-    size_t size;
+    size_t size, element_size;
+    free_function free_element;
+    copy_function copy_element;
     struct linked_list_element_s *head;
 };
 
@@ -16,14 +18,39 @@ struct f_cb_s {
     iteration_result (*f) (void*);
 };
 
-linked_list linked_list_create() {
+static void default_free_impl(void *) {
+    return;
+}
+
+static void* default_copy_impl(const void *x, size_t) {
+    return (void *) x;
+}
+
+linked_list linked_list_create(size_t element_size, free_function free_element, copy_function copy_element) {
     linked_list ll = (linked_list) malloc(sizeof(struct linked_list_s));
     if (ll == NULL) {
         return NULL;
     }
+    ll->element_size = element_size;
+    ll->free_element = free_element == NULL ? default_free_impl : free_element;
+    ll->copy_element = copy_element == NULL ? default_copy_impl : copy_element;
     ll->head = NULL;
     ll->size = 0;
     return ll;
+}
+
+linked_list linked_list_create_owned(free_function free_element) {
+    if (free_element == NULL) return NULL;
+    return linked_list_create(sizeof(void*), free_element, NULL);
+}
+
+linked_list linked_list_create_borrowed() {
+    return linked_list_create(sizeof(void*), NULL, NULL);
+}
+
+linked_list linked_list_create_trivial(size_t element_size, copy_function copy_element) {
+    if (copy_element == NULL) return NULL;
+    return linked_list_create(element_size, NULL, copy_element);
 }
 
 int linked_list_pushfront(linked_list ll, const void *element) {
@@ -32,7 +59,7 @@ int linked_list_pushfront(linked_list ll, const void *element) {
         return 1;
     }
 
-    new_element->value = (void *) element;
+    new_element->value = ll->copy_element(element, ll->element_size);
 
     if (ll->head == NULL) {
         ll->head = new_element;
@@ -112,6 +139,7 @@ void linked_list_destroy(linked_list ll) {
     struct linked_list_element_s *cur = ll->head;
     while (cur != NULL) {
         struct linked_list_element_s *next = cur->next;
+        ll->free_element(cur->value);
         free(cur);
         cur = next;
     }
